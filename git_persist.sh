@@ -4,9 +4,8 @@ set -o nounset
 echo ------------------------
 echo Persisting report_dir in Git
 
-pwd
+git_branch=${1:-$git_branch}
 
-git_branch=${2:-$git_branch}
 
 if [ -z ${SSH_PRIVATE_KEY+x} ]; then
     echo SSH_PRIVATE_KEY not set, skip push to git

@@ -1,0 +1,17 @@
+*.pyc
+__pycache__
+*~
+.*.sw[op]
+*.egg-info
+*.egg
+.eggs
+.tox
+local
+dist
+build
+_build
+distribute-*
+.venv
+.idea/
+*.iml
+rsa_key.pem

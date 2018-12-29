@@ -6,7 +6,6 @@ echo Persisting report_dir in Git
 
 pwd
 
-report_dir=${1:-$report_dir}
 git_branch=${2:-$git_branch}
 
 if [ -z ${SSH_PRIVATE_KEY+x} ]; then
@@ -19,7 +18,7 @@ else
     chmod 400 $SSH_FILE
     git config --global user.name "Jenkins Agent"
     git config --global user.email "Jenkins_Agent@localhost"
-    git add $report_dir
+    git add -A .
     git commit -m "adding report"
 
     remote_url=$(git remote get-url origin)

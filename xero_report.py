@@ -78,8 +78,7 @@ class XeroReport:
 
     def generate_pdf(self, html, output_file):
         print html
-        config = pdfkit.configuration(wkhtmltopdf='C:/Program Files/wkhtmltopdf/bin/wkhtmltopdf.exe')
-        pdfkit.from_string(html, output_file, configuration=config)
+        pdfkit.from_string(html, output_file)
 
     def report_name(self):
         project = self.xero_client.project(self.project_id)
@@ -150,9 +149,12 @@ if __name__ == '__main__':
         if o[0] == '-p':
             project_ids = [x.strip() for x in o[1].split(',')]
         elif o[0] == '-s' and o[1] != 'None':
+            print o[1]
             start_time = datetime.datetime.strptime(o[1] + 'Z', '%Y-%m-%dZ')
+            print start_time
         elif o[0] == '-e' and o[1] != 'None':
             end_time = datetime.datetime.strptime(o[1] + 'Z', '%Y-%m-%dZ')
+            end_time = end_time.replace(year=end_time.year, month=end_time.month, day=end_time.day, hour=23, minute=59, second=59, microsecond=999)
         elif o[0] == '-u':
             customer_key = o[1]
         elif o[0] == '-k':
@@ -171,10 +173,11 @@ if __name__ == '__main__':
 
     if start_time is None:
         now = datetime.datetime.utcnow()
-        today = now.replace(now.year, now.month, now.day, 0, 0, 0, 0)
-        last_monday = now - datetime.timedelta(days=today.weekday())
+        today = now.replace(year=now.year, month=now.month, day=now.day, hour=0, minute=0, second=0, microsecond=0)
+        last_monday = today - datetime.timedelta(days=today.weekday())
         start_time = last_monday - datetime.timedelta(days=7 * duration_weeks)
         end_time = last_monday - datetime.timedelta(days=1)
+        end_time = end_time.replace(year=end_time.year, month=end_time.month, day=end_time.day, hour=23, minute=59, second=59, microsecond=999)
 
     xero_client = XeroClient(customer_key, private_key)
     for project_id in project_ids:

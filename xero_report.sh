@@ -66,6 +66,6 @@ if [ -z ${OUTPUT+x} ]; then
     OUTPUT=$PWD
 fi
 
-$BASE_DIR/xero_report.py -p $PROJECT_ID -s $START_DATE -e $END_DATE -u $XERO_CUSTOMER_KEY -k "$XERO_PRIVATE_KEY" -d $DURATION_WEEKS -o $OUTPUT
+python $BASE_DIR/xero_report.py -p $PROJECT_ID -s $START_DATE -e $END_DATE -u $XERO_CUSTOMER_KEY -k "$XERO_PRIVATE_KEY" -d $DURATION_WEEKS -o $OUTPUT
 
 

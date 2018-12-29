@@ -174,9 +174,9 @@ if __name__ == '__main__':
     if start_time is None:
         now = datetime.datetime.utcnow()
         today = now.replace(year=now.year, month=now.month, day=now.day, hour=0, minute=0, second=0, microsecond=0)
-        last_monday = today - datetime.timedelta(days=today.weekday())
-        start_time = last_monday - datetime.timedelta(days=7 * duration_weeks)
-        end_time = last_monday - datetime.timedelta(days=1)
+        next_sunday = today + datetime.timedelta(days=6 - today.weekday())
+        start_time = next_sunday - datetime.timedelta(days=7 * duration_weeks - 1)
+        end_time = next_sunday
         end_time = end_time.replace(year=end_time.year, month=end_time.month, day=end_time.day, hour=23, minute=59, second=59, microsecond=999)
 
     xero_client = XeroClient(customer_key, private_key)

@@ -14,3 +14,4 @@ WORKDIR /opt/xero_automation
 # Install app dependencies
 RUN python setup.py install
 RUN chmod +x xero_report.sh
+RUN chmod +x git_persist.sh

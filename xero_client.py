@@ -7,13 +7,13 @@ from xero.auth import PrivateCredentials
 
 
 class XeroClient:
-    def __init__(self, customer_key, rsa_key):
-        self.customer_key = customer_key
+    def __init__(self, consumer_key, rsa_key):
+        self.consumer_key = consumer_key
         self.rsa_key = rsa_key
 
     def project(self, project_id):
         url = 'https://api.xero.com/projects.xro/1.0/projects/' + project_id
-        credentials = PrivateCredentials(self.customer_key, self.rsa_key)
+        credentials = PrivateCredentials(self.consumer_key, self.rsa_key)
         headers = {'Accept': 'application/json'}
         r = requests.get(url, headers=headers, auth=credentials.oauth)
         if r.status_code != 200:
@@ -24,7 +24,7 @@ class XeroClient:
 
     def task(self, project_id, task_id):
         url = 'https://api.xero.com/projects.xro/1.0/projects/' + project_id + '/tasks/' + task_id
-        credentials = PrivateCredentials(self.customer_key, self.rsa_key)
+        credentials = PrivateCredentials(self.consumer_key, self.rsa_key)
         headers = {'Accept': 'application/json'}
         r = requests.get(url, headers=headers, auth=credentials.oauth)
         if r.status_code != 200:
@@ -41,7 +41,7 @@ class XeroClient:
             url += 'dateBeforeUtc=' + urllib.quote(self.to_json_timestamp(end_time))
 
         print url
-        credentials = PrivateCredentials(self.customer_key, self.rsa_key)
+        credentials = PrivateCredentials(self.consumer_key, self.rsa_key)
         headers = {'Accept': 'application/json'}
         r = requests.get(url, headers=headers, auth=credentials.oauth)
         if r.status_code != 200:
@@ -53,7 +53,7 @@ class XeroClient:
 
     def user(self, user_id):
         url = 'https://api.xero.com/projects.xro/1.0/projectsusers'
-        credentials = PrivateCredentials(self.customer_key, self.rsa_key)
+        credentials = PrivateCredentials(self.consumer_key, self.rsa_key)
         headers = {'Accept': 'application/json'}
         r = requests.get(url, headers=headers, auth=credentials.oauth)
         if r.status_code != 200:
@@ -68,7 +68,7 @@ class XeroClient:
 
     def contact(self, contact_id):
         url = 'https://api.xero.com/api.xro/2.0/Contacts/' + contact_id
-        credentials = PrivateCredentials(self.customer_key, self.rsa_key)
+        credentials = PrivateCredentials(self.consumer_key, self.rsa_key)
         headers = {'Accept': 'application/json'}
         r = requests.get(url, headers=headers, auth=credentials.oauth)
         if r.status_code != 200:

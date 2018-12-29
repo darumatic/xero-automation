@@ -140,7 +140,7 @@ if __name__ == '__main__':
     project_ids = None
     start_time = None
     end_time = None
-    customer_key = None
+    consumer_key = None
     private_key = None
     duration_weeks = None
     output = None
@@ -156,7 +156,7 @@ if __name__ == '__main__':
             end_time = datetime.datetime.strptime(o[1] + 'Z', '%Y-%m-%dZ')
             end_time = end_time.replace(year=end_time.year, month=end_time.month, day=end_time.day, hour=23, minute=59, second=59, microsecond=999)
         elif o[0] == '-u':
-            customer_key = o[1]
+            consumer_key = o[1]
         elif o[0] == '-k':
             private_key = o[1]
         elif o[0] == '-d' and o[1] is not None:
@@ -165,7 +165,7 @@ if __name__ == '__main__':
             output = o[1]
 
     if project_ids is None or \
-            customer_key is None or \
+            consumer_key is None or \
             private_key is None:
         print """Missing required parameters
                 """
@@ -179,7 +179,7 @@ if __name__ == '__main__':
         end_time = next_sunday
         end_time = end_time.replace(year=end_time.year, month=end_time.month, day=end_time.day, hour=23, minute=59, second=59, microsecond=999)
 
-    xero_client = XeroClient(customer_key, private_key)
+    xero_client = XeroClient(consumer_key, private_key)
     for project_id in project_ids:
         print 'Generate Xero report for project %s between %s %s' % (project_id, start_time, end_time)
         report = XeroReport(project_id, start_time, end_time, xero_client)

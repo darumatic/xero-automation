@@ -1,6 +1,6 @@
 #!/bin/bash -e
 
-USAGE="Usage: xero_report.sh --PROJECT_ID=projectId --START_DATE=startTime --END_DATE=startTime --XERO_CUSTOMER_KEY=key --XERO_PRIVATE_KEY_FILE=key.pem  --XERO_PRIVATE_KEY=key"
+USAGE="Usage: xero_report.sh --PROJECT_ID=projectId --START_DATE=startTime --END_DATE=startTime --XERO_CONSUMER_KEY=key --XERO_PRIVATE_KEY_FILE=key.pem  --XERO_PRIVATE_KEY=key"
 BASE_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null && pwd )"
 PWD=$(pwd)
 
@@ -22,8 +22,8 @@ case $i in
     DURATION_WEEKS="${i#*=}"
     shift
     ;;
-    --XERO_CUSTOMER_KEY=*)
-    XERO_CUSTOMER_KEY="${i#*=}"
+    --XERO_CONSUMER_KEY=*)
+    XERO_CONSUMER_KEY="${i#*=}"
     shift
     ;;
     --XERO_PRIVATE_KEY_FILE=*)
@@ -41,7 +41,7 @@ case $i in
 esac
 done
 
-if [ -z ${XERO_CUSTOMER_KEY+x} ]  || [ -z ${XERO_PRIVATE_KEY_FILE+x} ] && [ -z ${XERO_PRIVATE_KEY+x} ] || [ -z ${PROJECT_ID+x} ]; then
+if [ -z ${XERO_CONSUMER_KEY+x} ]  || [ -z ${XERO_PRIVATE_KEY_FILE+x} ] && [ -z ${XERO_PRIVATE_KEY+x} ] || [ -z ${PROJECT_ID+x} ]; then
     echo $USAGE
     exit 1
 fi
@@ -72,7 +72,7 @@ else
     git_branch=$CI_BUILD_REF_NAME
 fi
 
-python $BASE_DIR/xero_report.py -p $PROJECT_ID -s $START_DATE -e $END_DATE -u $XERO_CUSTOMER_KEY -k "$XERO_PRIVATE_KEY" -d $DURATION_WEEKS -o $OUTPUT
+python $BASE_DIR/xero_report.py -p $PROJECT_ID -s $START_DATE -e $END_DATE -u $XERO_CONSUMER_KEY -k "$XERO_PRIVATE_KEY" -d $DURATION_WEEKS -o $OUTPUT
 $BASE_DIR/git_persist.sh $OUTPUT $git_branch
 
 

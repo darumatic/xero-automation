@@ -1,6 +1,6 @@
 # Dockerfile
 FROM ubuntu:18.04
-RUN apt update && apt-get install -y build-essential libssl-dev libffi-dev wkhtmltopdf xfonts-75dpi python2.7 python-pip wget
+RUN apt update && apt-get install -y build-essential libssl-dev libffi-dev wkhtmltopdf xfonts-75dpi python2.7 python-pip wget git
 
 # Install wkhtmltopdf to support headless
 RUN wget https://downloads.wkhtmltopdf.org/0.12/0.12.5/wkhtmltox_0.12.5-1.bionic_amd64.deb -P /tmp

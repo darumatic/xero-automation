@@ -14,5 +14,3 @@ WORKDIR /opt/xero_automation
 # Install app dependencies
 RUN python setup.py install
 RUN chmod +x xero_report.sh
-
-CMD ["./xero_report.sh"]

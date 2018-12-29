@@ -66,6 +66,13 @@ if [ -z ${OUTPUT+x} ]; then
     OUTPUT=$PWD
 fi
 
+if [ -z ${CI_BUILD_REF_NAME+x} ]; then
+    git_branch=$(git rev-parse --abbrev-ref HEAD)
+else
+    git_branch=$CI_BUILD_REF_NAME
+fi
+
 python $BASE_DIR/xero_report.py -p $PROJECT_ID -s $START_DATE -e $END_DATE -u $XERO_CUSTOMER_KEY -k "$XERO_PRIVATE_KEY" -d $DURATION_WEEKS -o $OUTPUT
+$BASE_DIR/proxy_persist.sh $OUTPUT $git_branch
 
 

@@ -65,7 +65,7 @@ class XeroReport:
             'startTime': self.start_time.strftime('%d %b %Y'),
             'endTime': self.end_time.strftime('%d %b %Y'),
             'totalHours': total_hours,
-            'totalDays': int(total_hours / 24),
+            'totalDays': self.round_hours_to_days(total_hours),
             'projectName': project['name'],
             'tasks': user_tasks
         }
@@ -111,8 +111,18 @@ class XeroReport:
             'taskName': task['name'],
             'taskDescription': time['description'],
             'date': time['dateUtc'][0:10],
-            'duration': int(time['duration'] / 60)
+            'duration': self.round_minutes_to_hours(time['duration'])
         }
+
+    def round_minutes_to_hours(self, minutes):
+        hours = int(minutes / 60)
+        round_up = (minutes % 60) / 15
+        if (round_up % 2 != 0):
+            round_up += 1
+        return hours + (round_up / 2 * 0.5)
+
+    def round_hours_to_days(self, hours):
+        return round(float(hours) / 8, 2)
 
     def user(self, user_id):
         xero_client = self.xero_client

@@ -1,4 +1,4 @@
-#Xero Automation
+# Xero Automation
 
 The project generates Xero Project Time report. 
 
@@ -16,23 +16,23 @@ The project generates Xero Project Time report.
   
 - START_DATE
  
-  START_DATE is the report start date. The date format is 2018-12-01.
+  START_DATE is the report start date. The date format is yyyy-MM-dd.
   
 - END_DATE
 
-  END_DATE is the report start date. END_DATE is included in the report.
+  END_DATE is the report start date. The END_DATE is included in the report.
   
 - XERO_CONSUMER_KEY
 
-  XERO_CONSUMER_KEY is Xero private APP customer key. See 
+  XERO_CONSUMER_KEY is Xero private app consumer key. See 
   
 - XERO_PRIVATE_KEY_FILE
 
-  XERO_PRIVATE_KEY_FILE is Xero private APP RSA private key file path.
+  XERO_PRIVATE_KEY_FILE is Xero private app RSA private key file path.
   
 ## Run with Gitlab pipeline
 
-Generate Xero report and upload to remote git repo. Demo repository https://gitlab.com/snsw-int/xero-report. 
+Generate Xero report and upload report PDF to the remote git repo. Demo repository https://gitlab.com/snsw-int/xero-report. 
 
 CI/CD variables: 
 - PROJECT_ID
@@ -51,7 +51,10 @@ CI/CD variables:
   
   For Gitlab CRON schedule, we could not specify START_DATE. So we use END_DATE to be current week's SUNDAY, START_DATE is set to be END_DATE - DURATION_WEEKS * 7.
 
+- SSH_PRIVATE_KEY
 
+  Gitlab deployment private key to push report files to remote git repo.
+  
 ## How to create a Xero APP
 
 1. Open https://developer.xero.com/myapps/

@@ -77,7 +77,6 @@ class XeroReport:
         return pystache.render(template, data)
 
     def generate_pdf(self, html, output_file):
-        print html
         pdfkit.from_string(html, output_file)
 
     def report_name(self):
@@ -110,7 +109,7 @@ class XeroReport:
             'userName': user['name'],
             'taskName': task['name'],
             'taskDescription': time['description'],
-            'date': time['dateUtc'][0:10],
+            'date': datetime.datetime.strptime(time['dateUtc'][0:10] + 'Z', '%Y-%m-%dZ').strftime('%d-%b-%Y'),
             'duration': self.round_minutes_to_hours(time['duration'])
         }
 
@@ -144,8 +143,8 @@ class XeroReport:
 
 
 if __name__ == '__main__':
-    OPTIONS = 'p:s:e:u:k:d:o'
-    opts = getopt.getopt(sys.argv[1:], OPTIONS)[0]
+    OPTIONS = 'p:s:e:u:d:o:k'
+    opts = getopt.getopt(sys.argv[1:], OPTIONS, ['key='])[0]
 
     project_ids = None
     start_time = None
@@ -167,7 +166,7 @@ if __name__ == '__main__':
             end_time = end_time.replace(year=end_time.year, month=end_time.month, day=end_time.day, hour=23, minute=59, second=59, microsecond=999)
         elif o[0] == '-u':
             consumer_key = o[1]
-        elif o[0] == '-k':
+        elif o[0] in ('-k', '--key'):
             private_key = o[1]
         elif o[0] == '-d' and o[1] is not None:
             duration_weeks = int(o[1])
@@ -191,6 +190,6 @@ if __name__ == '__main__':
 
     xero_client = XeroClient(consumer_key, private_key)
     for project_id in project_ids:
-        print 'Generate Xero report for project %s between %s %s' % (project_id, start_time, end_time)
+        print 'Generate Xero report for project %s between %s %s to %s' % (project_id, start_time, end_time, output)
         report = XeroReport(project_id, start_time, end_time, xero_client)
         report.generate(output)

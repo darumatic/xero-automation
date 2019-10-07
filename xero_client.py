@@ -12,7 +12,7 @@ class XeroClient:
         self.rsa_key = rsa_key
 
     def project(self, project_id):
-        url = 'https://api.xero.com/projects.xro/1.0/projects/' + project_id
+        url = 'https://api.xero.com/projects.xro/2.0/projects' + project_id
         credentials = PrivateCredentials(self.consumer_key, self.rsa_key)
         headers = {'Accept': 'application/json'}
         r = requests.get(url, headers=headers, auth=credentials.oauth)
@@ -23,7 +23,7 @@ class XeroClient:
         return r.json()
 
     def task(self, project_id, task_id):
-        url = 'https://api.xero.com/projects.xro/1.0/projects/' + project_id + '/tasks/' + task_id
+        url = 'https://api.xero.com/projects.xro/2.0/projects/' + project_id + '/tasks/' + task_id
         credentials = PrivateCredentials(self.consumer_key, self.rsa_key)
         headers = {'Accept': 'application/json'}
         r = requests.get(url, headers=headers, auth=credentials.oauth)
@@ -34,7 +34,7 @@ class XeroClient:
         return r.json()
 
     def time(self, project_id, start_time, end_time):
-        url = 'https://api.xero.com/projects.xro/1.0/projects/' + project_id + '/time?'
+        url = 'https://api.xero.com/projects.xro/2.0/projects/' + project_id + '/time?'
         if start_time is not None:
             url += 'dateAfterUtc=' + urllib.quote(self.to_json_timestamp(start_time)) + '&'
         if end_time is not None:
@@ -52,7 +52,7 @@ class XeroClient:
         return body['items']
 
     def user(self, user_id):
-        url = 'https://api.xero.com/projects.xro/1.0/projectsusers'
+        url = 'https://api.xero.com/projects.xro/2.0/projectsusers'
         credentials = PrivateCredentials(self.consumer_key, self.rsa_key)
         headers = {'Accept': 'application/json'}
         r = requests.get(url, headers=headers, auth=credentials.oauth)

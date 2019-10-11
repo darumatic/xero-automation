@@ -12,7 +12,7 @@ class XeroClient:
         self.rsa_key = rsa_key
 
     def project(self, project_id):
-        url = 'https://api.xero.com/projects.xro/2.0/projects' + project_id
+        url = 'https://api.xero.com/projects.xro/2.0/projects/' + project_id
         credentials = PrivateCredentials(self.consumer_key, self.rsa_key)
         headers = {'Accept': 'application/json'}
         r = requests.get(url, headers=headers, auth=credentials.oauth)
@@ -44,7 +44,11 @@ class XeroClient:
         credentials = PrivateCredentials(self.consumer_key, self.rsa_key)
         headers = {'Accept': 'application/json'}
         r = requests.get(url, headers=headers, auth=credentials.oauth)
+        print credentials.oauth_token
+        print r.status_code
+        print r.text
         if r.status_code != 200:
+            print "XXXXXXXXXXXXXX" + r.status_code
             error = r.text
             raise Exception('failed to load project time, response=' + error)
 

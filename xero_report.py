@@ -5,6 +5,7 @@ import getopt
 import os
 import random
 import sys
+from pprint import pprint
 
 import pdfkit
 import pystache
@@ -13,13 +14,56 @@ from xero_client import XeroClient
 
 
 class XeroReport:
-    def __init__(self, project_id, start_time, end_time, xero_client):
-        self.project_id = project_id
-        self.start_time = start_time
-        self.end_time = end_time
-        self.xero_client = xero_client
+    def __init__(self, arguments):
         self.cache_users = {}
         self.cache_tasks = {}
+        self.parse_options(arguments)
+        self.xero_client = XeroClient(self.consumer_key, self.private_key)
+
+    def parse_options(self, arguments):
+        OPTIONS = 'p:s:e:u:d:o:k'
+        opts = getopt.getopt(arguments, OPTIONS, ['key='])[0]
+
+        self.project_ids = None
+        self.start_time = None
+        self.end_time = None
+        self.consumer_key = None
+        self.private_key = None
+        self.duration_weeks = None
+        self.output = None
+        self.project_ids = None
+
+        for o in opts:
+            if o[0] == '-p':
+                self.project_ids = [x.strip() for x in o[1].split(',')]
+            elif o[0] == '-s' and o[1] != 'None':
+                self.start_time = datetime.datetime.strptime(o[1] + 'Z', '%Y-%m-%dZ')
+            elif o[0] == '-e' and o[1] != 'None':
+                self.end_time = datetime.datetime.strptime(o[1] + 'Z', '%Y-%m-%dZ')
+                self.end_time = self.end_time.replace(year=self.end_time.year, month=self.end_time.month, day=self.end_time.day, hour=23,
+                                            minute=59, second=59, microsecond=999)
+            elif o[0] == '-u':
+                self.consumer_key = o[1]
+            elif o[0] in ('-k', '--key'):
+                self.private_key = o[1]
+            elif o[0] == '-d' and o[1] is not None:
+                self.duration_weeks = int(o[1])
+            elif o[0] == '-o':
+                self.output = o[1]
+
+        if self.project_ids is None or \
+                self.consumer_key is None or \
+                self.private_key is None:
+            raise RuntimeError("Missing required parameters")
+
+        if self.start_time is None:
+            now = datetime.datetime.utcnow()
+            today = now.replace(year=now.year, month=now.month, day=now.day, hour=0, minute=0, second=0, microsecond=0)
+            next_sunday = today + datetime.timedelta(days=6 - today.weekday())
+            self.start_time = next_sunday - datetime.timedelta(days=7 * duration_weeks - 1)
+            self.end_time = next_sunday
+            self.end_time = self.end_time.replace(year=self.end_time.year, month=self.end_time.month, day=self.end_time.day, hour=23, minute=59,
+                                        second=59, microsecond=999)
 
     def generate(self, output_dir):
         data = self.load_data()
@@ -141,55 +185,20 @@ class XeroReport:
             self.cache_tasks[task_id] = task
             return task
 
+    def get_active_projects(self):
+        data = self.xero_client.get('https://api.xero.com/projects.xro/2.0/projects?states=INPROGRESS')
+        for items in data:
+            for item in items['items']:
+                print("Name: {0}, ProjectID: {1}, Status: {2}, ContactId: {3}".format(item["name"], item["projectId"], item["status"], item["contactId"]))
 
-if __name__ == '__main__':
-    OPTIONS = 'p:s:e:u:d:o:k'
-    opts = getopt.getopt(sys.argv[1:], OPTIONS, ['key='])[0]
 
-    project_ids = None
-    start_time = None
-    end_time = None
-    consumer_key = None
-    private_key = None
-    duration_weeks = None
-    output = None
-
-    for o in opts:
-        if o[0] == '-p':
-            project_ids = [x.strip() for x in o[1].split(',')]
-        elif o[0] == '-s' and o[1] != 'None':
-            print o[1]
-            start_time = datetime.datetime.strptime(o[1] + 'Z', '%Y-%m-%dZ')
-            print start_time
-        elif o[0] == '-e' and o[1] != 'None':
-            end_time = datetime.datetime.strptime(o[1] + 'Z', '%Y-%m-%dZ')
-            end_time = end_time.replace(year=end_time.year, month=end_time.month, day=end_time.day, hour=23, minute=59, second=59, microsecond=999)
-        elif o[0] == '-u':
-            consumer_key = o[1]
-        elif o[0] in ('-k', '--key'):
-            private_key = o[1]
-        elif o[0] == '-d' and o[1] is not None:
-            duration_weeks = int(o[1])
-        elif o[0] == '-o':
-            output = o[1]
-
-    if project_ids is None or \
-            consumer_key is None or \
-            private_key is None:
-        print """Missing required parameters
-                """
-        sys.exit(1)
-
-    if start_time is None:
-        now = datetime.datetime.utcnow()
-        today = now.replace(year=now.year, month=now.month, day=now.day, hour=0, minute=0, second=0, microsecond=0)
-        next_sunday = today + datetime.timedelta(days=6 - today.weekday())
-        start_time = next_sunday - datetime.timedelta(days=7 * duration_weeks - 1)
-        end_time = next_sunday
-        end_time = end_time.replace(year=end_time.year, month=end_time.month, day=end_time.day, hour=23, minute=59, second=59, microsecond=999)
-
-    xero_client = XeroClient(consumer_key, private_key)
-    for project_id in project_ids:
-        print 'Generate Xero report for project %s between %s %s to %s' % (project_id, start_time, end_time, output)
-        report = XeroReport(project_id, start_time, end_time, xero_client)
-        report.generate(output)
+if __name__ == "__main__":
+    args = ['-p', 'a7f253e9-c842-4675-a90e-124a16f4891d',
+            '-s', '2019-10-01',
+            '-e', '2019-11-15',
+            '-u', open("XERO_CONSUMER_KEY").read().strip(),
+            '-d', '2',
+            '-o', '/home/adrian/Nextcloud/Projects/xero-automation',
+            '--key={0}'.format(open("privatekey.pem").read())]
+    reporter = XeroReport(args)
+    reporter.get_active_projects()

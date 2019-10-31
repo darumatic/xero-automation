@@ -65,24 +65,24 @@ class XeroReport:
             self.end_time = self.end_time.replace(year=self.end_time.year, month=self.end_time.month, day=self.end_time.day, hour=23, minute=59,
                                         second=59, microsecond=999)
 
-    def generate(self, output_dir):
-        data = self.load_data()
+    def generate(self, output_dir, project_id):
+        data = self.load_data(project_id)
         html = self.generate_html(data)
-        self.generate_pdf(html, os.path.join(output_dir, self.report_name()))
+        self.generate_pdf(html, os.path.join(output_dir, self.report_name(project_id)))
 
-    def load_data(self):
+    def load_data(self, project_id):
         xero_client = self.xero_client
-        time_list = xero_client.time(self.project_id, self.start_time, self.end_time)
-        project = xero_client.project(self.project_id)
+        time_list = xero_client.time(project_id, self.start_time, self.end_time)
+        project = xero_client.project(project_id)
 
         tasks = {}
         for time in time_list:
             user_id = time['userId']
             if user_id in tasks:
                 user_time = tasks[user_id]
-                user_time.append(self.task_item(time))
+                user_time.append(self.task_item(time, project_id))
             else:
-                user_time = [self.task_item(time)]
+                user_time = [self.task_item(time, project_id)]
                 tasks[user_id] = user_time
 
         total_hours = 0
@@ -123,8 +123,8 @@ class XeroReport:
     def generate_pdf(self, html, output_file):
         pdfkit.from_string(html, output_file)
 
-    def report_name(self):
-        project = self.xero_client.project(self.project_id)
+    def report_name(self, project_id):
+        project = self.xero_client.project(project_id)
         project_name = project['name']
         report_name = ''
         skip = False
@@ -145,9 +145,9 @@ class XeroReport:
         report_name += '.pdf'
         return report_name
 
-    def task_item(self, time):
+    def task_item(self, time, project_id):
         user = self.user(time['userId'])
-        task = self.task(time['taskId'])
+        task = self.task(time['taskId'], project_id)
 
         return {
             'userName': user['name'],
@@ -176,29 +176,47 @@ class XeroReport:
             self.cache_users[user_id] = user
             return user
 
-    def task(self, task_id):
+    def task(self, task_id, project_id):
         xero_client = self.xero_client
         if task_id in self.cache_tasks:
             return self.cache_tasks[task_id]
         else:
-            task = xero_client.task(self.project_id, task_id)
+            task = xero_client.task(project_id, task_id)
             self.cache_tasks[task_id] = task
             return task
 
     def get_active_projects(self):
-        data = self.xero_client.get('https://api.xero.com/projects.xro/2.0/projects?states=INPROGRESS')
-        for items in data:
+        return self.xero_client.get('https://api.xero.com/projects.xro/2.0/projects?states=INPROGRESS')
+
+    def print_active_projects(self):
+        for items in self.get_active_projects():
             for item in items['items']:
                 print("Name: {0}, ProjectID: {1}, Status: {2}, ContactId: {3}".format(item["name"], item["projectId"], item["status"], item["contactId"]))
 
+    def create_monthly_time_sheets(self, output, reporter, month=None):
+        # if month is None:
+        ## setup the first and last day of the month
+        #     pass
+        #     today = datetime.today()
+        #     datem = datetime(today.year, today.month, 1)
+        from_day = '2019-10-01'
+        to_day = '2019-10-31'
+        for items in self.get_active_projects():
+            for item in items['items']:
+                if 'DLP' not in item["name"]:
+                    continue
+                print 'Generate Xero report for project %s between %s %s to %s' % (item["projectId"], from_day, to_day, output)
+                print("Name: {0}, ProjectID: {1}, Status: {2}, ContactId: {3}".format(item["name"], item["projectId"], item["status"], item["contactId"]))
+                reporter.generate(output, item["projectId"])
 
 if __name__ == "__main__":
     args = ['-p', 'a7f253e9-c842-4675-a90e-124a16f4891d',
             '-s', '2019-10-01',
-            '-e', '2019-11-15',
+            '-e', '2019-10-31',
             '-u', open("XERO_CONSUMER_KEY").read().strip(),
             '-d', '2',
-            '-o', '/home/adrian/Nextcloud/Projects/xero-automation',
+            '-o', '/home/adrian/Nextcloud/Projects/xero-automation/out',
             '--key={0}'.format(open("privatekey.pem").read())]
     reporter = XeroReport(args)
-    reporter.get_active_projects()
+    #reporter.print_active_projects()
+    reporter.create_monthly_time_sheets(output='/home/adrian/Nextcloud/Projects/xero-automation/out', reporter=reporter)

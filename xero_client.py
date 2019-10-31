@@ -31,7 +31,7 @@ class XeroClient:
     def project(self, project_id):
         url = 'https://api.xero.com/projects.xro/2.0/projects/' + project_id
         headers = {'Accept': 'application/json'}
-        r = requests.get(url, headers=headers, auth=credentials.oauth)
+        r = requests.get(url, headers=headers, auth=self.credentials.oauth)
         if r.status_code != 200:
             error = r.text
             raise Exception('failed to load project, response=' + error)
@@ -50,7 +50,7 @@ class XeroClient:
     def task(self, project_id, task_id):
         url = 'https://api.xero.com/projects.xro/2.0/projects/' + project_id + '/tasks/' + task_id
         headers = {'Accept': 'application/json'}
-        r = requests.get(url, headers=headers, auth=credentials.oauth)
+        r = requests.get(url, headers=headers, auth=self.credentials.oauth)
         if r.status_code != 200:
             error = r.text
             raise Exception('failed to load task, response=' + error)
@@ -65,8 +65,8 @@ class XeroClient:
             url += 'dateBeforeUtc=' + urllib.quote(self.to_json_timestamp(end_time))
 
         headers = {'Accept': 'application/json'}
-        r = requests.get(url, headers=headers, auth=credentials.oauth)
-        print credentials.oauth_token
+        r = requests.get(url, headers=headers, auth=self.credentials.oauth)
+        print self.credentials.oauth_token
         print r.status_code
         print r.text
         if r.status_code != 200:
@@ -80,7 +80,7 @@ class XeroClient:
     def user(self, user_id):
         url = 'https://api.xero.com/projects.xro/2.0/projectsusers'
         headers = {'Accept': 'application/json'}
-        r = requests.get(url, headers=headers, auth=credentials.oauth)
+        r = requests.get(url, headers=headers, auth=self.credentials.oauth)
         if r.status_code != 200:
             error = r.text
             raise Exception('failed to load user, response=' + error)
@@ -94,7 +94,7 @@ class XeroClient:
     def contact(self, contact_id):
         url = 'https://api.xero.com/api.xro/2.0/Contacts/' + contact_id
         headers = {'Accept': 'application/json'}
-        r = requests.get(url, headers=headers, auth=credentials.oauth)
+        r = requests.get(url, headers=headers, auth=self.credentials.oauth)
         if r.status_code != 200:
             error = r.text
             raise Exception('failed to load contact, response=' + error)

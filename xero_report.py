@@ -4,6 +4,8 @@ import datetime
 import getopt
 import os
 import random
+import shutil
+import time
 import sys
 from pprint import pprint
 
@@ -186,7 +188,7 @@ class XeroReport:
             return task
 
     def get_active_projects(self):
-        return self.xero_client.get('https://api.xero.com/projects.xro/2.0/projects?states=INPROGRESS')
+        return self.xero_client.get_items('https://api.xero.com/projects.xro/2.0/projects?states=INPROGRESS', one_page=False)
 
     def print_active_projects(self):
         for items in self.get_active_projects():
@@ -200,23 +202,28 @@ class XeroReport:
         #     today = datetime.today()
         #     datem = datetime(today.year, today.month, 1)
         from_day = '2019-10-01'
-        to_day = '2019-10-31'
+        to_day = '2019-11-01'
+        if os.path.exists(output):
+            shutil.rmtree(output)
+            os.makedirs(output)
+        else:
+            os.makedirs(output)
         for items in self.get_active_projects():
             for item in items['items']:
-                if 'DLP' not in item["name"]:
-                    continue
                 print 'Generate Xero report for project %s between %s %s to %s' % (item["projectId"], from_day, to_day, output)
                 print("Name: {0}, ProjectID: {1}, Status: {2}, ContactId: {3}".format(item["name"], item["projectId"], item["status"], item["contactId"]))
                 reporter.generate(output, item["projectId"])
+                #print("Sleeping for 10 seconds..")
+                #time.sleep(10)
+
 
 if __name__ == "__main__":
     args = ['-p', 'a7f253e9-c842-4675-a90e-124a16f4891d',
             '-s', '2019-10-01',
-            '-e', '2019-10-31',
+            '-e', '2019-11-01',
             '-u', open("XERO_CONSUMER_KEY").read().strip(),
             '-d', '2',
             '-o', '/home/adrian/Nextcloud/Projects/xero-automation/out',
             '--key={0}'.format(open("privatekey.pem").read())]
     reporter = XeroReport(args)
-    #reporter.print_active_projects()
     reporter.create_monthly_time_sheets(output='/home/adrian/Nextcloud/Projects/xero-automation/out', reporter=reporter)

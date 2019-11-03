@@ -202,7 +202,7 @@ class XeroReport:
         #     today = datetime.today()
         #     datem = datetime(today.year, today.month, 1)
         from_day = '2019-10-01'
-        to_day = '2019-11-01'
+        to_day = '2019-10-31'
         if os.path.exists(output):
             shutil.rmtree(output)
             os.makedirs(output)
@@ -220,7 +220,7 @@ class XeroReport:
 if __name__ == "__main__":
     args = ['-p', 'a7f253e9-c842-4675-a90e-124a16f4891d',
             '-s', '2019-10-01',
-            '-e', '2019-11-01',
+            '-e', '2019-10-31',
             '-u', open("XERO_CONSUMER_KEY").read().strip(),
             '-d', '2',
             '-o', '/home/adrian/Nextcloud/Projects/xero-automation/out',

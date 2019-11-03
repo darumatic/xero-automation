@@ -15,3 +15,16 @@ distribute-*
 .idea/
 *.iml
 rsa_key.pem
+XERO_CONSUMER_KEY
+*.cer
+*.pfx
+*.pem
+out/*
+adr_test.sh
+api.txt
+chi_test.sh
+keys.txt
+run.demo.sh
+run.py
+run.sh
+

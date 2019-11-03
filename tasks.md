@@ -6,29 +6,29 @@
     - Failure, with failure report if there is a wrong date.
     - Add validations. Full time employees should max-out hours for the month.
 
--Generate Excel Spreadsheet for SNSW.
+- Generate Excel Spreadsheet report.
 
--Create time-sheets of a particular month.
+- Create time-sheets of a particular month.
 
--Export all time-sheets.
-    -Mandatory: Specify time period.
+- Export all time-sheets.
+    - Mandatory: Specify time period.
 
--Run validations.
-    -Generate a report and email it to employee and admin@darumatic.com
-    -Validate that the time date belongs to the right month.
-    -Validate that the projects are including a valid month.
-    -Warning in case there are more than 40 hours per consultant, per project, per month.
+- Run validations.
+    - Generate a report and email it to consultant and admin emails.
+    - Validate that the time date belongs to the right month.
+    - Validate that the projects are including a valid month.
+    - Warning in case there are more than 40 hours per consultant, per project, per month.
 
--Generate Budget report.
-    -Update the Spreadsheet.
-    -Email to recipients.
+- Generate Budget report.
+    - Update the Spreadsheet.
+    - Email to recipients.
 
--Option to store reports in Google Drive.
+- Option to store reports in Google Drive.
 
--Refactor code, like removing unused main options.
+- Refactor code, like removing unused main options.
 
--Duplicate projects automatically.
+- Duplicate projects automatically.
 
--Close projects automatically.
+- Close projects automatically.
 
--Remind people to enter their time-sheets monthly.
+- Remind people to enter their time-sheets monthly.

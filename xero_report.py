@@ -5,10 +5,6 @@ import getopt
 import os
 import random
 import shutil
-import time
-import sys
-from pprint import pprint
-
 import pdfkit
 import pystache
 
@@ -26,24 +22,21 @@ class XeroReport:
         OPTIONS = 'p:s:e:u:d:o:k'
         opts = getopt.getopt(arguments, OPTIONS, ['key='])[0]
 
-        self.project_ids = None
         self.start_time = None
         self.end_time = None
         self.consumer_key = None
         self.private_key = None
         self.duration_weeks = None
         self.output = None
-        self.project_ids = None
 
         for o in opts:
-            if o[0] == '-p':
-                self.project_ids = [x.strip() for x in o[1].split(',')]
-            elif o[0] == '-s' and o[1] != 'None':
+            if o[0] == '-s' and o[1] != 'None':
                 self.start_time = datetime.datetime.strptime(o[1] + 'Z', '%Y-%m-%dZ')
             elif o[0] == '-e' and o[1] != 'None':
                 self.end_time = datetime.datetime.strptime(o[1] + 'Z', '%Y-%m-%dZ')
-                self.end_time = self.end_time.replace(year=self.end_time.year, month=self.end_time.month, day=self.end_time.day, hour=23,
-                                            minute=59, second=59, microsecond=999)
+                self.end_time = self.end_time.replace(year=self.end_time.year, month=self.end_time.month,
+                                                      day=self.end_time.day, hour=23,
+                                                      minute=59, second=59, microsecond=999)
             elif o[0] == '-u':
                 self.consumer_key = o[1]
             elif o[0] in ('-k', '--key'):
@@ -53,19 +46,24 @@ class XeroReport:
             elif o[0] == '-o':
                 self.output = o[1]
 
-        if self.project_ids is None or \
-                self.consumer_key is None or \
-                self.private_key is None:
-            raise RuntimeError("Missing required parameters")
-
         if self.start_time is None:
             now = datetime.datetime.utcnow()
             today = now.replace(year=now.year, month=now.month, day=now.day, hour=0, minute=0, second=0, microsecond=0)
             next_sunday = today + datetime.timedelta(days=6 - today.weekday())
-            self.start_time = next_sunday - datetime.timedelta(days=7 * duration_weeks - 1)
+            self.start_time = next_sunday - datetime.timedelta(days=7 * self.duration_weeks - 1)
             self.end_time = next_sunday
-            self.end_time = self.end_time.replace(year=self.end_time.year, month=self.end_time.month, day=self.end_time.day, hour=23, minute=59,
-                                        second=59, microsecond=999)
+            self.end_time = self.end_time.replace(year=self.end_time.year, month=self.end_time.month,
+                                                  day=self.end_time.day, hour=23, minute=59,
+                                                  second=59, microsecond=999)
+
+    def validate(self, output_dir, project_id, start_month, end_month):
+        data = self.load_data(project_id)
+        for d in data:
+
+            print data
+            data['tasks'][0]['items'][0]['date']
+            '13-Oct-2019'
+            datetime.datetime.strptime('13-Oct-2019', '%d-%b-%Y')
 
     def generate(self, output_dir, project_id):
         data = self.load_data(project_id)
@@ -117,7 +115,7 @@ class XeroReport:
         }
 
     def generate_html(self, data):
-        template_file_path = os.path.dirname(os.path.abspath(__file__)) + '/report.html'
+        template_file_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'report.html')
         with open(template_file_path) as template_file:
             template = template_file.read()
         return pystache.render(template, data)
@@ -188,42 +186,57 @@ class XeroReport:
             return task
 
     def get_active_projects(self):
-        return self.xero_client.get_items('https://api.xero.com/projects.xro/2.0/projects?states=INPROGRESS', one_page=False)
+        return self.xero_client.get_items('https://api.xero.com/projects.xro/2.0/projects?states=INPROGRESS',
+                                          one_page=False)
 
     def print_active_projects(self):
         for items in self.get_active_projects():
             for item in items['items']:
-                print("Name: {0}, ProjectID: {1}, Status: {2}, ContactId: {3}".format(item["name"], item["projectId"], item["status"], item["contactId"]))
+                print("Name: {0}, ProjectID: {1}, Status: {2}, ContactId: {3}".format(item["name"], item["projectId"],
+                                                                                      item["status"],
+                                                                                      item["contactId"]))
 
-    def create_monthly_time_sheets(self, output, reporter, month=None):
-        # if month is None:
-        ## setup the first and last day of the month
-        #     pass
-        #     today = datetime.today()
-        #     datem = datetime(today.year, today.month, 1)
-        from_day = '2019-10-01'
-        to_day = '2019-10-31'
-        if os.path.exists(output):
-            shutil.rmtree(output)
-            os.makedirs(output)
+    def create_monthly_time_sheets(self, reporter):
+        if os.path.exists(self.output):
+            shutil.rmtree(self.output)
+            os.makedirs(self.output)
         else:
-            os.makedirs(output)
+            os.makedirs(self.output)
         for items in self.get_active_projects():
             for item in items['items']:
-                print 'Generate Xero report for project %s between %s %s to %s' % (item["projectId"], from_day, to_day, output)
-                print("Name: {0}, ProjectID: {1}, Status: {2}, ContactId: {3}".format(item["name"], item["projectId"], item["status"], item["contactId"]))
-                reporter.generate(output, item["projectId"])
-                #print("Sleeping for 10 seconds..")
-                #time.sleep(10)
+                print 'Generate Xero report for project %s between %s %s to %s' % (
+                    item["projectId"], self.start_time, self.end_time, self.output)
+                print("Name: {0}, ProjectID: {1}, Status: {2}, ContactId: {3}".format(item["name"], item["projectId"],
+                                                                                      item["status"],
+                                                                                      item["contactId"]))
+                reporter.generate(self.output, item["projectId"])
+
+    def validate_active_projects(self, reporter):
+        self.start_time = datetime.datetime.strptime('2017-02-20' + 'Z', '%Y-%m-%dZ')
+        self.end_time = datetime.datetime.strptime('2099-02-20' + 'Z', '%Y-%m-%dZ')
+        month_start = datetime.datetime.strptime('2019-10-01' + 'Z', '%Y-%m-%dZ')
+        month_end = datetime.datetime.strptime('2019-10-31' + 'Z', '%Y-%m-%dZ')
+
+        for items in self.get_active_projects():
+            for item in items['items']:
+                print('Validating Active Projects..')
+                print("Name: {0}, ProjectID: {1}, Status: {2}, ContactId: {3}".format(item["name"], item["projectId"],
+                                                                                      item["status"],
+                                                                                      item["contactId"]))
+                reporter.validate(self.output, item["projectId"], month_start, month_end)
+                break
 
 
 if __name__ == "__main__":
-    args = ['-p', 'a7f253e9-c842-4675-a90e-124a16f4891d',
-            '-s', '2019-10-01',
+    current_dir = os.path.dirname(os.path.realpath(__file__))
+    # future = datetime.datetime.now() + datetime.timedelta(days=10000)
+
+    args = ['-s', '2019-10-01',
             '-e', '2019-10-31',
-            '-u', open("XERO_CONSUMER_KEY").read().strip(),
+            '-u', open(os.path.join(current_dir, "XERO_CONSUMER_KEY")).read().strip(),
             '-d', '2',
-            '-o', '/home/adrian/Nextcloud/Projects/xero-automation/out',
+            '-o', os.path.join(current_dir, "out"),
             '--key={0}'.format(open("privatekey.pem").read())]
     reporter = XeroReport(args)
-    reporter.create_monthly_time_sheets(output='/home/adrian/Nextcloud/Projects/xero-automation/out', reporter=reporter)
+    #reporter.create_monthly_time_sheets(reporter=reporter)
+    reporter.validate_active_projects(reporter)

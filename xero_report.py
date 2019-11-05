@@ -12,24 +12,9 @@ import pystache
 from xero_client import XeroClient
 
 
-class GMTSydney(datetime.tzinfo):
-     def utcoffset(self, dt):
-         return timedelta(hours=1) + self.dst(dt)
-     def dst(self, dt):
-         # DST starts last Sunday in March
-         d = datetime(dt.year, 4, 1)   # ends last Sunday in October
-         self.dston = d - timedelta(days=d.weekday() + 1)
-         d = datetime(dt.year, 11, 1)
-         self.dstoff = d - timedelta(days=d.weekday() + 1)
-         if self.dston <=  dt.replace(tzinfo=None) < self.dstoff:
-             return timedelta(hours=1)
-         else:
-             return timedelta(0)
-     def tzname(self,dt):
-          return "GMT +11"
-
 class XeroReport:
     def __init__(self, arguments):
+        self.SYDNEY_TIME_OFFSET = datetime.timedelta(hours=11)
         self.cache_users = {}
         self.cache_tasks = {}
         self.start_time = None
@@ -43,12 +28,12 @@ class XeroReport:
 
     def add_project_times(self, start_time, end_time):
         if start_time:
-            self.start_time = datetime.datetime.strptime(start_time + 'Z', '%Y-%m-%dZ')
+            self.start_time = datetime.datetime.strptime(start_time + 'Z', '%Y-%m-%dZ') - self.SYDNEY_TIME_OFFSET
         if end_time:
-            self.end_time = datetime.datetime.strptime(end_time + 'Z', '%Y-%m-%dZ')
+            self.end_time = datetime.datetime.strptime(end_time + 'Z', '%Y-%m-%dZ') - self.SYDNEY_TIME_OFFSET
             self.end_time = self.end_time.replace(year=self.end_time.year, month=self.end_time.month,
                                                   day=self.end_time.day, hour=23,
-                                                  minute=59, second=59, microsecond=999)
+                                                  minute=59, second=59, microsecond=999999)
 
     def parse_options(self, arguments):
         OPTIONS = 'p:s:e:u:d:o:k'
@@ -93,7 +78,6 @@ class XeroReport:
 
         return errors
 
-
     def load_data(self, project_id):
         xero_client = self.xero_client
         time_list = xero_client.time(project_id, self.start_time, self.end_time)
@@ -126,7 +110,6 @@ class XeroReport:
 
                 total_hours += task_hours
                 user_total_duration += task_hours
-                user_time_item['date'] = datetime.datetime.strptime(user_time_item['date'],'%d-%b-%Y').astimezone(datetime.tzinfo(GMTSydney()))
                 items.append(user_time_item)
 
             user_tasks.append({
@@ -136,15 +119,15 @@ class XeroReport:
             })
 
         return {
-            'startTime': self.start_time.strftime('%d %b %Y'),
-            'endTime': self.end_time.strftime('%d %b %Y'),
+            'startTime': (self.start_time + self.SYDNEY_TIME_OFFSET).strftime('%d %b %Y'),
+            'endTime': (self.end_time + self.SYDNEY_TIME_OFFSET).strftime('%d %b %Y'),
             'totalHours': total_hours,
             'totalDays': self.round_hours_to_days(total_hours),
             'projectName': project['name'],
             'tasks': user_tasks
         }
 
-    def generate(self, output_dir, project_id):
+    def generate_report(self, output_dir, project_id):
         data = self.load_data(project_id)
         html = self.generate_html(data)
         self.generate_pdf(html, os.path.join(output_dir, self.report_name(project_id)))
@@ -184,18 +167,21 @@ class XeroReport:
         user = self.user(time['userId'])
         task = self.task(time['taskId'], project_id)
 
-        ret = {}
+        sydney_time = datetime.datetime.strptime(time['dateUtc'], '%Y-%m-%dT%H:%M:%SZ') + self.SYDNEY_TIME_OFFSET
+        ret = {
+            'userName': user['name'],
+            'taskName': task['name'],
+            'date': sydney_time.strftime('%d-%b-%Y'),
+            'duration': self.round_minutes_to_hours(time['duration'])
+        }
+
         try:
-            ret = {
-                'userName': user['name'],
-                'taskName': task['name'],
-                'taskDescription': '{0}'.format(time['description'] if time['description'] else ''),
-                'date': datetime.datetime.strptime(time['dateUtc'][0:10] + 'Z', '%Y-%m-%dZ').strftime('%d-%b-%Y'),
-                'duration': self.round_minutes_to_hours(time['duration'])
-            }
+            description = time['description']
         except Exception as e:
-            print("Error getting task items. For time:{0} project_id:{1} user:{2} task:{3}".format(time, project_id, user, task))
-            print("Exception: {0}".format(str(e)))
+            print("Error capturing description from:{0} Falling back to empty string".format(str(time)))
+            description = ' '
+
+        ret['taskDescription'] = description
 
         return ret
 
@@ -227,6 +213,10 @@ class XeroReport:
             self.cache_tasks[task_id] = task
             return task
 
+    def get_all_projects(self):
+        return self.xero_client.get_items('https://api.xero.com/projects.xro/2.0/projects',
+                                          one_page=False)
+
     def get_active_projects(self):
         return self.xero_client.get_items('https://api.xero.com/projects.xro/2.0/projects?states=INPROGRESS',
                                           one_page=False)
@@ -244,54 +234,61 @@ class XeroReport:
             os.makedirs(self.output)
         else:
             os.makedirs(self.output)
-        for items in self.get_active_projects():
+        for items in self.get_all_projects():
             for item in items['items']:
-                if 'OneGov - PO 45453559 - 201910' not in item['name']:
+                if '201910' not in item['name']:
                     continue
                 print 'Generate Xero report for project %s between %s %s to %s' % (
                     item["projectId"], self.start_time, self.end_time, self.output)
                 print("Name: {0}, ProjectID: {1}, Status: {2}, ContactId: {3}".format(item["name"], item["projectId"],
                                                                                       item["status"],
                                                                                       item["contactId"]))
-                reporter.generate(self.output, item["projectId"])
+                reporter.generate_report(self.output, item["projectId"])
 
-    def validate_active_projects(self, reporter):
-        #todo: end time should be start + 100 years
-       # self.add_project_times('2017-02-20', '2099-02-20')
-        month_start = datetime.datetime.strptime('2019-10-01' + 'Z', '%Y-%m-%dZ')
-        month_end = datetime.datetime.strptime('2019-10-31' + 'Z', '%Y-%m-%dZ')
+    def validate_active_projects_time_limits(self, reporter):
+        month_start = self.start_time
+        month_end = self.end_time + self.SYDNEY_TIME_OFFSET
+        start_validation_time = '2017-02-20'
+        self.add_project_times(start_validation_time, None)
+        end_validation_time = self.start_time + datetime.timedelta(days=5000)
+        self.add_project_times(None, end_validation_time.strftime('%Y-%m-%d'))
+        start_validation_time, end_validation_time = self.start_time, self.end_time
+
+        print('Validating Active Projects..')
+        print("Start Validation Time:{0} \n End Validation time:{1} \n Start Month:{2} \n End Month:{3}".format(
+            start_validation_time, end_validation_time, month_start, month_end))
         errors = {}
+        amount_of_errors = 0
 
-        for items in self.get_active_projects():
+        for items in self.get_all_projects():
             for item in items['items']:
-                # if "L&G - Front End - PO 45457767 - 201910" not in item["name"]:
-                #     continue
                 if '201910' not in item['name']:
                     continue
-                print('Validating Active Projects..')
                 print("Name: {0}, ProjectID: {1}, Status: {2}, ContactId: {3}".format(item["name"], item["projectId"],
                                                                                       item["status"],
                                                                                       item["contactId"]))
                 errors[item["name"]] = []
                 project_errors = reporter.validate(self.output, item["projectId"], month_start, month_end)
                 errors[item["name"]].append(project_errors)
-                break
+                amount_of_errors = len(project_errors) + amount_of_errors
 
         print("*" * 80)
         print("List of Validation errors")
         pprint.pprint(errors)
-
+        if amount_of_errors == 0:
+            print("There are no errors. All tasks are validated successfully!!")
+        else:
+            print("There were a total of {0} errors.".format(amount_of_errors))
 
 if __name__ == "__main__":
     current_dir = os.path.dirname(os.path.realpath(__file__))
-    # future = datetime.datetime.now() + datetime.timedelta(days=10000)
 
-    args = ['-s', '2019-09-10',
-            '-e', '2019-09-30',
+    args = ['-s', '2019-10-01',
+            '-e', '2019-10-31',
             '-u', open(os.path.join(current_dir, "XERO_CONSUMER_KEY")).read().strip(),
             '-d', '2',
             '-o', os.path.join(current_dir, "out"),
             '--key={0}'.format(open("privatekey.pem").read())]
     reporter = XeroReport(args)
     reporter.create_monthly_time_sheets(reporter)
-    #reporter.validate_active_projects(reporter)
+    #reporter.validate_active_projects_time_limits(reporter)

@@ -12,22 +12,6 @@ import pystache
 from xero_client import XeroClient
 
 
-class GMTSydney(datetime.tzinfo):
-     def utcoffset(self, dt):
-         return timedelta(hours=1) + self.dst(dt)
-     def dst(self, dt):
-         # DST starts last Sunday in March
-         d = datetime(dt.year, 4, 1)   # ends last Sunday in October
-         self.dston = d - timedelta(days=d.weekday() + 1)
-         d = datetime(dt.year, 11, 1)
-         self.dstoff = d - timedelta(days=d.weekday() + 1)
-         if self.dston <=  dt.replace(tzinfo=None) < self.dstoff:
-             return timedelta(hours=1)
-         else:
-             return timedelta(0)
-     def tzname(self,dt):
-          return "GMT +11"
-
 class XeroReport:
     def __init__(self, arguments):
         self.cache_users = {}
@@ -40,6 +24,7 @@ class XeroReport:
         self.output = None
         self.parse_options(arguments)
         self.xero_client = XeroClient(self.consumer_key, self.private_key)
+        self.TIME_OFFSET = datetime.time(11, 0, 0)
 
     def add_project_times(self, start_time, end_time):
         if start_time:
@@ -126,7 +111,7 @@ class XeroReport:
 
                 total_hours += task_hours
                 user_total_duration += task_hours
-                user_time_item['date'] = datetime.datetime.strptime(user_time_item['date'],'%d-%b-%Y').astimezone(datetime.tzinfo(GMTSydney()))
+                user_time_item['date'] = datetime.datetime.strptime(user_time_item['date'],'%d-%b-%Y') + self.TIME_OFFSET
                 items.append(user_time_item)
 
             user_tasks.append({

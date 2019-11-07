@@ -5,6 +5,7 @@
     - Start and end date should be all encompassing. This is to include entries with the wrong date.
     - Failure, with failure report if there is a wrong date.
     - Add validations. Full time employees should max-out hours for the month.
+    - Test time-zone edge cases.
 
 - Generate Excel Spreadsheet report.
 
@@ -18,6 +19,7 @@
     - Validate that the time date belongs to the right month.
     - Validate that the projects are including a valid month.
     - Warning in case there are more than 40 hours per consultant, per project, per month.
+    - Empty descriptions
 
 - Generate Budget report.
     - Update the Spreadsheet.

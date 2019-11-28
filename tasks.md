@@ -34,3 +34,9 @@
 - Close projects automatically.
 
 - Remind people to enter their time-sheets monthly.
+
+PO Status
+
+-Balance Projects - when we passed the PO limit we need to balance tasks with up to 15 minutes precision 
+
+-Verify status reports

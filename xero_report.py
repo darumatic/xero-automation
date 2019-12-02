@@ -294,5 +294,6 @@ if __name__ == "__main__":
             '-o', os.path.join(current_dir, "out"),
             '--key={0}'.format(open("privatekey.pem").read())]
     reporter = XeroReport(args)
-    reporter.create_monthly_time_sheets(reporter)
+    pprint.pprint(reporter.get_active_projects())
+    #reporter.create_monthly_time_sheets(reporter)
     #reporter.validate_active_projects_time_limits(reporter)

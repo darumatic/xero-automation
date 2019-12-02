@@ -80,8 +80,8 @@ class XeroClient:
         if end_time is not None:
             url += 'dateBeforeUtc=' + urllib.quote(self.to_json_timestamp(end_time))
 
-        body = self.get_items(url)
-        return body['items']
+        body = self.get_items(url, one_page=False)
+        return body['items'] if type(body) is dict else body[0]['items']
 
     def user(self, user_id):
         url = 'https://api.xero.com/projects.xro/2.0/projectsusers'

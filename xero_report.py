@@ -236,7 +236,9 @@ class XeroReport:
             os.makedirs(self.output)
         for items in self.get_all_projects():
             for item in items['items']:
-                if '201910' not in item['name']:
+                if '45459704' not in item['name']:
+                    continue
+                if '201907' not in item['name']:
                     continue
                 print 'Generate Xero report for project %s between %s %s to %s' % (
                     item["projectId"], self.start_time, self.end_time, self.output)
@@ -262,7 +264,9 @@ class XeroReport:
 
         for items in self.get_all_projects():
             for item in items['items']:
-                if '201910' not in item['name']:
+                if '45459704' not in item['name']:
+                    continue
+                if '201907' not in item['name']:
                     continue
                 print("Name: {0}, ProjectID: {1}, Status: {2}, ContactId: {3}".format(item["name"], item["projectId"],
                                                                                       item["status"],
@@ -283,8 +287,8 @@ class XeroReport:
 if __name__ == "__main__":
     current_dir = os.path.dirname(os.path.realpath(__file__))
 
-    args = ['-s', '2019-10-01',
-            '-e', '2019-10-31',
+    args = ['-s', '2018-07-01',
+            '-e', '2019-07-31',
             '-u', open(os.path.join(current_dir, "XERO_CONSUMER_KEY")).read().strip(),
             '-d', '2',
             '-o', os.path.join(current_dir, "out"),

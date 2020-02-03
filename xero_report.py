@@ -28,12 +28,13 @@ class XeroReport:
 
     def add_project_times(self, start_time, end_time):
         if start_time:
+            #adjust UTC to Sydney tz
             self.start_time = datetime.datetime.strptime(start_time + 'Z', '%Y-%m-%dZ') - self.SYDNEY_TIME_OFFSET
         if end_time:
+            #adjust UTC to Sydney tz
             self.end_time = datetime.datetime.strptime(end_time + 'Z', '%Y-%m-%dZ') - self.SYDNEY_TIME_OFFSET
-            self.end_time = self.end_time.replace(year=self.end_time.year, month=self.end_time.month,
-                                                  day=self.end_time.day, hour=23,
-                                                  minute=59, second=59, microsecond=999999)
+            #shift to the last second of the day
+            self.end_time = self.end_time + datetime.timedelta(hours=23, minutes=59, seconds=59)
 
     def parse_options(self, arguments):
         OPTIONS = 'p:s:e:u:d:o:k'
@@ -186,11 +187,12 @@ class XeroReport:
         return ret
 
     def round_minutes_to_hours(self, minutes):
-        hours = int(minutes / 60)
-        round_up = (minutes % 60) / 15
-        if (round_up % 2 != 0):
-            round_up += 1
-        return hours + (round_up / 2 * 0.5)
+        # hours = int(minutes / 60)
+        # round_up = (minutes % 60) / 15
+        # if (round_up % 2 != 0):
+        #     round_up += 1
+        # return hours + (round_up / 2 * 0.5)
+        return round(float(minutes) / 60, 3)
 
     def round_hours_to_days(self, hours):
         return round(float(hours) / 8, 2)
@@ -236,9 +238,7 @@ class XeroReport:
             os.makedirs(self.output)
         for items in self.get_all_projects():
             for item in items['items']:
-                if '45459704' not in item['name']:
-                    continue
-                if '201907' not in item['name']:
+                if 'OpenShift Implementation - 202001' not in item['name']:
                     continue
                 print 'Generate Xero report for project %s between %s %s to %s' % (
                     item["projectId"], self.start_time, self.end_time, self.output)
@@ -264,9 +264,7 @@ class XeroReport:
 
         for items in self.get_all_projects():
             for item in items['items']:
-                if '45459704' not in item['name']:
-                    continue
-                if '201907' not in item['name']:
+                if '202001' not in item['name']:
                     continue
                 print("Name: {0}, ProjectID: {1}, Status: {2}, ContactId: {3}".format(item["name"], item["projectId"],
                                                                                       item["status"],
@@ -287,13 +285,13 @@ class XeroReport:
 if __name__ == "__main__":
     current_dir = os.path.dirname(os.path.realpath(__file__))
 
-    args = ['-s', '2018-07-01',
-            '-e', '2019-07-31',
+    args = ['-s', '2020-01-31',
+            '-e', '2020-01-31',
             '-u', open(os.path.join(current_dir, "XERO_CONSUMER_KEY")).read().strip(),
             '-d', '2',
             '-o', os.path.join(current_dir, "out"),
             '--key={0}'.format(open("privatekey.pem").read())]
     reporter = XeroReport(args)
     pprint.pprint(reporter.get_active_projects())
-    #reporter.create_monthly_time_sheets(reporter)
+    reporter.create_monthly_time_sheets(reporter)
     #reporter.validate_active_projects_time_limits(reporter)

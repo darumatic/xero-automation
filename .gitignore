@@ -16,6 +16,8 @@ distribute-*
 *.iml
 rsa_key.pem
 XERO_CONSUMER_KEY
+XERO_REFRESH_TOKEN
+XERO_CLIENT_SECRET
 *.cer
 *.pfx
 *.pem

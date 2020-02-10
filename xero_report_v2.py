@@ -288,14 +288,16 @@ class XeroReport:
 
 if __name__ == "__main__":
     current_dir = os.path.dirname(os.path.realpath(__file__))
+    CLIENT_ID = '1744C5B5478644999D632BC16B3D7D7C'
+    TENANT_ID = '2e741d6d-cf4e-4ccb-83d2-6bbc0d0f3cb8'
 
     args = ['-s', '2020-01-31',
             '-e', '2020-01-31',
-            '-p', '2e741d6d-cf4e-4ccb-83d2-6bbc0d0f3cb8',
+            '-p', TENANT_ID,
             '-t', open(os.path.join(current_dir, "XERO_REFRESH_TOKEN")).read().strip(),
             '-d', '2',
             '-o', os.path.join(current_dir, "out"),
-            '-c', "1744C5B5478644999D632BC16B3D7D7C",
+            '-c', CLIENT_ID,
             '-k', open(os.path.join(current_dir, "XERO_CLIENT_SECRET")).read().strip()]
     reporter = XeroReport(args)
     pprint.pprint(reporter.get_active_projects())

@@ -2,6 +2,20 @@
 
 The project generates Xero Project Time report. 
 
+## Requirements 
+
+- wkhtmltopdf
+
+The script depends wkhtmltopdf to generate PDF. The following steps install wkhtmltopdf. 
+
+```
+cd ~
+wget https://github.com/wkhtmltopdf/wkhtmltopdf/releases/download/0.12.3/wkhtmltox-0.12.3_linux-generic-amd64.tar.xz
+tar vxf wkhtmltox-0.12.3_linux-generic-amd64.tar.xz 
+cp wkhtmltox/bin/wk* /usr/local/bin/
+```
+
+- python 2.7
 
 ## How to use it? 
 
@@ -20,3 +34,5 @@ For example: xero-3D91BDB5880A4ECEA2F179CCD8534844.json
 {"tenant_id": "f2384ce5-58aa-4838-a67a-807340bab535", "refresh_token": "12bc96eecb2f4b220b37757ddda9b8b5939a9198862ea49ad0c5dab0f4361155", "client_id": "3D91BDB5880A4ECEA2F179CCD8534844"}
 
 ```
+
+

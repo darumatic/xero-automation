@@ -1,5 +1,6 @@
 import base64
 import json
+import os
 import time
 import urllib
 
@@ -7,35 +8,29 @@ import requests
 
 
 class XeroClient:
-    def __init__(self, client_id, client_secret, tenant_id, refresh_token):
-        print "client_id=%s" % client_id
-        print "client_secret=%s" % client_secret
-        print "tenant_id=%s" % tenant_id
-        print "refresh_token=%s" % refresh_token
-
+    def __init__(self, client_id, client_secret, config):
         headers = {
             'authorization': "Basic " + base64.b64encode(client_id + ":" + client_secret),
             'Content-Type': 'application/x-www-form-urlencoded'
         }
 
-        print headers
-
         r = requests.post('https://identity.xero.com/connect/token', headers=headers, data={
             'grant_type': 'refresh_token',
-            'refresh_token': refresh_token
+            'refresh_token': config["refresh_token"]
         })
 
-        print "========== Refresh access token"
-        print r.text
-
-        access_token = r.json()["access_token"]
+        body = r.json()
+        access_token = body["access_token"]
+        config["refresh_token"] = body["refresh_token"]
+        config_path = os.path.join(os.path.expanduser('~'), "xero-" + client_id + ".json")
+        with open(config_path, 'w') as outfile:
+            json.dump(config, outfile)
 
         self.headers = {
             'Accept': 'application/json',
             'Authorization': "Bearer " + access_token,
-            'Xero-tenant-id': tenant_id
+            'Xero-tenant-id': config["tenant_id"]
         }
-
         self.MAX_TRIES = 9
         self.cache = {}
 
@@ -48,9 +43,6 @@ class XeroClient:
                 print("Request is cached")
                 response = self.cache[url]
                 break
-
-            print "HEADERS:"
-            print self.headers
             r = requests.get(url, headers=self.headers)
             if r.status_code != 200:
                 error = r.text
@@ -84,6 +76,7 @@ class XeroClient:
                     break
         else:
             response = self.get_request(url)
+        print "URL %s, response: %s" % (url, json.dumps(response))
         return response
 
     def project(self, project_id):

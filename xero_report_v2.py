@@ -1,29 +1,95 @@
 #!/usr/bin/env python
 
+import argparse
 import datetime
-import getopt
+import json
 import os
 import pprint
 import random
 import shutil
+import sys
+from BaseHTTPServer import BaseHTTPRequestHandler, HTTPServer
 
 import pdfkit
 import pystache
+from requests_oauthlib import OAuth2Session
 
 from xero_client_v2 import XeroClient
 
+os.environ['OAUTHLIB_INSECURE_TRANSPORT'] = '1'
+PORT_NUMBER = 3000
+REDIRECT_URI = 'http://localhost:' + str(PORT_NUMBER)
+SCOPE = ['offline_access', 'projects', 'openid', 'accounting.contacts', ]
+
+client_id = ''
+client_secret = ''
+server_state = True
+
+
+class oauth_callback_handler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        global client_id
+        global client_secret
+        global server_state
+
+        print client_id
+        print client_secret
+
+        if (not self.path.startswith("/?")):
+            self.send_response(200)
+            self.send_header('Content-type', 'text/html')
+            self.end_headers()
+            return
+
+        callback_url = REDIRECT_URI + self.path
+        token = oauth.fetch_token('https://identity.xero.com/connect/token', authorization_response=callback_url, client_secret=client_secret)
+        connections = oauth.get("https://api.xero.com/connections").json()
+        if len(connections) == 0:
+            print 'Error, no connections.'
+            return
+
+        config = {
+            "client_id": client_id,
+            "refresh_token": token['refresh_token'],
+            "tenant_id": connections[0]['tenantId']
+        }
+
+        config_path = os.path.join(os.path.expanduser('~'), "xero-" + args.client_id + ".json")
+        print "Write Xero client %s credential to %s" % (client_id, config_path)
+        with open(config_path, 'w') as outfile:
+            json.dump(config, outfile)
+
+        self.send_response(200)
+        self.send_header('Content-type', 'text/html')
+        self.end_headers()
+        self.wfile.write("<html><script>window.close();</script></html>")
+        self.wfile.close()
+        server_state = False
+
 
 class XeroReport:
-    def __init__(self, arguments):
+    def __init__(self, args, config):
         self.SYDNEY_TIME_OFFSET = datetime.timedelta(hours=11)
+        self.client_id = args.client_id
+        self.client_secret = args.client_secret
+        self.tenant_id = config["tenant_id"]
         self.cache_users = {}
         self.cache_tasks = {}
-        self.start_time = None
-        self.end_time = None
-        self.duration_weeks = None
-        self.output = None
-        self.parse_options(arguments)
-        self.xero_client = XeroClient(self.client_id, self.client_secret, self.tenant_id, self.refresh_token)
+        self.duration_weeks = 2
+        self.output = args.output
+
+        self.add_project_times(args.start_time, args.end_time)
+        if self.start_time is None:
+            now = datetime.datetime.utcnow()
+            today = now.replace(year=now.year, month=now.month, day=now.day, hour=0, minute=0, second=0, microsecond=0)
+            next_sunday = today + datetime.timedelta(days=6 - today.weekday())
+            self.start_time = next_sunday - datetime.timedelta(days=7 * self.duration_weeks - 1)
+            self.end_time = next_sunday
+            self.end_time = self.end_time.replace(year=self.end_time.year, month=self.end_time.month,
+                                                  day=self.end_time.day, hour=23, minute=59,
+                                                  second=59, microsecond=999)
+
+        self.xero_client = XeroClient(self.client_id, self.client_secret, config)
 
     def add_project_times(self, start_time, end_time):
         if start_time:
@@ -34,38 +100,6 @@ class XeroReport:
             self.end_time = datetime.datetime.strptime(end_time + 'Z', '%Y-%m-%dZ') - self.SYDNEY_TIME_OFFSET
             # shift to the last second of the day
             self.end_time = self.end_time + datetime.timedelta(hours=23, minutes=59, seconds=59)
-
-    def parse_options(self, arguments):
-        OPTIONS = 'p:s:e:t:d:o:c:k:'
-        opts = getopt.getopt(arguments, OPTIONS, ['key='])[0]
-
-        for o in opts:
-            if o[0] in ('-p'):
-                self.tenant_id = o[1]
-            elif o[0] == '-s' and o[1] != 'None':
-                self.add_project_times(o[1], None)
-            elif o[0] == '-e' and o[1] != 'None':
-                self.add_project_times(None, o[1])
-            elif o[0] in ('-t'):
-                self.refresh_token = o[1]
-            elif o[0] == '-d' and o[1] is not None:
-                self.duration_weeks = int(o[1])
-            elif o[0] == '-o':
-                self.output = o[1]
-            elif o[0] == '-c':
-                self.client_id = o[1]
-            elif o[0] == '-k':
-                self.client_secret = o[1]
-
-        if self.start_time is None:
-            now = datetime.datetime.utcnow()
-            today = now.replace(year=now.year, month=now.month, day=now.day, hour=0, minute=0, second=0, microsecond=0)
-            next_sunday = today + datetime.timedelta(days=6 - today.weekday())
-            self.start_time = next_sunday - datetime.timedelta(days=7 * self.duration_weeks - 1)
-            self.end_time = next_sunday
-            self.end_time = self.end_time.replace(year=self.end_time.year, month=self.end_time.month,
-                                                  day=self.end_time.day, hour=23, minute=59,
-                                                  second=59, microsecond=999)
 
     def validate(self, output_dir, project_id, start_month, end_month):
         VALIDATION_ERROR = "Validation Error: "
@@ -132,6 +166,7 @@ class XeroReport:
         }
 
     def generate_report(self, output_dir, project_id):
+        print 'Generate report, project id=%s' % project_id
         data = self.load_data(project_id)
         html = self.generate_html(data)
         self.generate_pdf(html, os.path.join(output_dir, self.report_name(project_id)))
@@ -239,15 +274,18 @@ class XeroReport:
             os.makedirs(self.output)
         else:
             os.makedirs(self.output)
-        for items in self.get_all_projects():
+
+        projects = self.get_all_projects()
+
+        for items in projects:
             for item in items['items']:
-                if 'OpenShift Implementation - 202001' not in item['name']:
-                    continue
-                print 'Generate Xero report for project %s between %s %s to %s' % (
-                    item["projectId"], self.start_time, self.end_time, self.output)
-                print("Name: {0}, ProjectID: {1}, Status: {2}, ContactId: {3}".format(item["name"], item["projectId"],
-                                                                                      item["status"],
-                                                                                      item["contactId"]))
+                # if 'OpenShift Implementation - 202001' not in item['name']:
+                #     continue
+                # print 'Generate Xero report for project %s between %s %s to %s' % (
+                #     item["projectId"], self.start_time, self.end_time, self.output)
+                # print("Name: {0}, ProjectID: {1}, Status: {2}, ContactId: {3}".format(item["name"], item["projectId"],
+                #                                                                       item["status"],
+                #                                                                       item["contactId"]))
                 reporter.generate_report(self.output, item["projectId"])
 
     def validate_active_projects_time_limits(self, reporter):
@@ -288,18 +326,31 @@ class XeroReport:
 
 if __name__ == "__main__":
     current_dir = os.path.dirname(os.path.realpath(__file__))
-    CLIENT_ID = '1744C5B5478644999D632BC16B3D7D7C'
-    TENANT_ID = '2e741d6d-cf4e-4ccb-83d2-6bbc0d0f3cb8'
 
-    args = ['-s', '2020-01-31',
-            '-e', '2020-01-31',
-            '-p', TENANT_ID,
-            '-t', open(os.path.join(current_dir, "XERO_REFRESH_TOKEN")).read().strip(),
-            '-d', '2',
-            '-o', os.path.join(current_dir, "out"),
-            '-c', CLIENT_ID,
-            '-k', open(os.path.join(current_dir, "XERO_CLIENT_SECRET")).read().strip()]
-    reporter = XeroReport(args)
-    pprint.pprint(reporter.get_active_projects())
+    parser = argparse.ArgumentParser("Generate Xero project reports")
+    parser.add_argument('--client_id', type=str)
+    parser.add_argument('--client_secret', type=str)
+    parser.add_argument('--start_time', type=str)
+    parser.add_argument('--end_time', type=str)
+    parser.add_argument('--output', type=str, default=os.path.join(current_dir, "out"))
+
+    args = parser.parse_args(sys.argv[1:])
+    client_id = args.client_id
+    client_secret = args.client_secret
+
+    config_path = os.path.join(os.path.expanduser('~'), "xero-" + args.client_id + ".json")
+    if not os.path.exists(config_path):
+        oauth = OAuth2Session(args.client_id, redirect_uri=REDIRECT_URI, scope=SCOPE)
+        authorization_url, state = oauth.authorization_url('https://login.xero.com/identity/connect/authorize', access_type="offline", prompt="select_account")
+
+        print "Please open the following URL in your browser:"
+        print authorization_url
+        server = HTTPServer(('', PORT_NUMBER), oauth_callback_handler)
+        while server_state:
+            server.handle_request()
+
+    with open(config_path) as json_file:
+        config = json.load(json_file)
+
+    reporter = XeroReport(args, config)
     reporter.create_monthly_time_sheets(reporter)
-    # reporter.validate_active_projects_time_limits(reporter)

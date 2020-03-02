@@ -14,7 +14,7 @@ import pdfkit
 import pystache
 from requests_oauthlib import OAuth2Session
 
-from xero_client_v2 import XeroClient
+from xero_client import XeroClient
 
 os.environ['OAUTHLIB_INSECURE_TRANSPORT'] = '1'
 PORT_NUMBER = 3000

@@ -1,16 +1,36 @@
+import base64
 import json
+import os
 import time
 import urllib
 
 import requests
 
-from xero.auth import PrivateCredentials
-
 
 class XeroClient:
-    def __init__(self, consumer_key, rsa_key):
-        self.credentials = PrivateCredentials(consumer_key, rsa_key)
-        self.headers = {'Accept': 'application/json'}
+    def __init__(self, client_id, client_secret, config):
+        headers = {
+            'authorization': "Basic " + base64.b64encode(client_id + ":" + client_secret),
+            'Content-Type': 'application/x-www-form-urlencoded'
+        }
+
+        r = requests.post('https://identity.xero.com/connect/token', headers=headers, data={
+            'grant_type': 'refresh_token',
+            'refresh_token': config["refresh_token"]
+        })
+
+        body = r.json()
+        access_token = body["access_token"]
+        config["refresh_token"] = body["refresh_token"]
+        config_path = os.path.join(os.path.expanduser('~'), "xero-" + client_id + ".json")
+        with open(config_path, 'w') as outfile:
+            json.dump(config, outfile)
+
+        self.headers = {
+            'Accept': 'application/json',
+            'Authorization': "Bearer " + access_token,
+            'Xero-tenant-id': config["tenant_id"]
+        }
         self.MAX_TRIES = 9
         self.cache = {}
 
@@ -23,7 +43,7 @@ class XeroClient:
                 print("Request is cached")
                 response = self.cache[url]
                 break
-            r = requests.get(url, headers=self.headers, auth=self.credentials.oauth)
+            r = requests.get(url, headers=self.headers)
             if r.status_code != 200:
                 error = r.text
                 too_many_requests = ("Max retries exceeded" in error) or ("rate%20limit%20exceeded" in error)
@@ -56,6 +76,7 @@ class XeroClient:
                     break
         else:
             response = self.get_request(url)
+        print "URL %s, response: %s" % (url, json.dumps(response))
         return response
 
     def project(self, project_id):

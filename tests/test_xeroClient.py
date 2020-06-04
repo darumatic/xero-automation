@@ -3,7 +3,7 @@ import json
 import os
 from unittest import TestCase
 
-from xero_client import XeroClient
+from xeroclient.XeroClient import XeroClient
 
 rsa_key_file = os.path.dirname(os.path.abspath(__file__)) + '/../rsa_key.pem'
 with open(rsa_key_file) as keyfile:
@@ -17,16 +17,16 @@ class TestXeroClient(TestCase):
 
         start_time = datetime.datetime.strptime("2018-12-01Z", "%Y-%m-%dZ")
         end_time = datetime.datetime.strptime("2018-12-30Z", "%Y-%m-%dZ")
-        time_list = xero_client.time(project_id, start_time, end_time)
+        time_list = xero_client.get_project_time_interval(project_id, start_time, end_time)
         for time in time_list:
             print json.dumps(time)
-            user = xero_client.user(time['userId'])
+            user = xero_client.get_all_single_user_details_by_id(time['userId'])
             print json.dumps(user)
 
-            task = xero_client.task(project_id, time['taskId'])
+            task = xero_client.get_task(project_id, time['taskId'])
             print json.dumps(task)
 
-            project = xero_client.project(project_id)
+            project = xero_client.get_single_project_details_by_id(project_id)
             print json.dumps(project)
-            contact = xero_client.contact(project['contactId'])
+            contact = xero_client.get_contact_name_by_id(project['contactId'])
             print json.dumps(contact)

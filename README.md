@@ -6,8 +6,20 @@ The project generates Xero Project Time report.
 ## Manual run the command 
 
 ```
-./xero_report.sh --PROJECT_ID=fa6649e7-f55d-40bb-8a31-55cf2fb18d5c --START_DATE=2018-12-01 --END_DATE=2018-12-30 --XERO_CONSUMER_KEY=RC0JPAB2DPT71YLTXHBVP6AWJFV73W --XERO_PRIVATE_KEY_FILE=./rsa_key.pem
+example usages:
+
+to clone projects
+python main.py --start-date 2019-10-01 --end-date 2019-10-31 --consumer-key KSBYNZLKTG5KZXWTFJZANB3R4ZYBH9 --private-key-file privatekey.pem --run-mode clone-projects
+
+to generate timesheets for all weeks and also send an email run with these params
+python main.py --start-date 2019-11-01 --end-date 2019-11-30 --consumer-key KSBYNZLKTG5KZXWTFJZANB3R4ZYBH9 --private-key-file privatekey.pem --run-mode excel-reports-timesheet
+
 ```
+known issue: currently the dates are not used correctly in all cases.
+
+run --help to obtain information about parameters
+python main.py --help 
+
 
 - PROJECT_ID
   
@@ -29,31 +41,17 @@ The project generates Xero Project Time report.
 - XERO_PRIVATE_KEY_FILE
 
   XERO_PRIVATE_KEY_FILE is Xero private app RSA private key file path.
-  
+
+- RUN-MODE
+  the program logic that you want to run from a list of predefined actions, run the tool with --help to see the possible values
+
+
 ## Run with Gitlab pipeline
 
 Generate Xero report and upload report PDF to the remote git repo. Demo repository https://gitlab.com/snsw-int/xero-report. 
 
 CI/CD variables: 
-- PROJECT_ID
-  
-  Same as above.
-  
-- XERO_CONSUMER_KEY
-  
-  Same as above.
-  
-- XERO_PRIVATE_KEY
 
-  XERO_PRIVATE_KEY is Xero private APP RSA private key content.
-  
-- DURATION_WEEKS
-  
-  For Gitlab CRON schedule, we could not specify START_DATE. So we use END_DATE to be current week's SUNDAY, START_DATE is set to be END_DATE - DURATION_WEEKS * 7.
-
-- SSH_PRIVATE_KEY
-
-  Gitlab deployment private key to push report files to remote git repo.
   
 ## How to create a Xero APP
 
@@ -71,4 +69,3 @@ CI/CD variables:
 6. Upload publickey.cer.
 7. XERO_CONSUMER_KEY is OAuth 1.0a Credentials Consumer Key.
 8. XERO_PRIVATE_KEY is privatekey.pem content.
-  

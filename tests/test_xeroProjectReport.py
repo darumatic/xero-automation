@@ -2,8 +2,8 @@ import datetime
 import os
 from unittest import TestCase
 
-from xero_client import XeroClient
-from xero_report import XeroReport
+from xeroclient.XeroClient import XeroClient
+from xeroutils.XeroReport import XeroReport
 
 rsa_key_file = os.path.dirname(os.path.abspath(__file__)) + '/../rsa_key.pem'
 with open(rsa_key_file) as keyfile:

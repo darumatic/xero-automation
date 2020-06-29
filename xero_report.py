@@ -40,12 +40,15 @@ class XeroReport:
         if start_time:
             # adjust UTC to Sydney tz
             self.start_time = datetime.datetime.strptime(start_time + 'Z', '%Y-%m-%dZ') - self.SYDNEY_TIME_OFFSET
-
+        else:
+            self.start_time = None
         if end_time:
             # adjust UTC to Sydney tz
             self.end_time = datetime.datetime.strptime(end_time + 'Z', '%Y-%m-%dZ') - self.SYDNEY_TIME_OFFSET
             # shift to the last second of the day
             self.end_time = self.end_time + datetime.timedelta(hours=23, minutes=59, seconds=59)
+        else:
+            self.end_time = None
 
     def validate(self, output_dir, project_id, start_month, end_month):
         VALIDATION_ERROR = "Validation Error: "

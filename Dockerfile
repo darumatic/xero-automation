@@ -1,5 +1,6 @@
 # Dockerfile
 FROM ubuntu:18.04
+ENV DEBIAN_FRONTEND noninteractive
 RUN apt update && apt-get install -y build-essential libssl-dev libffi-dev wkhtmltopdf xfonts-75dpi python2.7 python-pip wget git
 
 # Install wkhtmltopdf to support headless

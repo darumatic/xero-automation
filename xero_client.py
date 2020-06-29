@@ -22,6 +22,7 @@ class XeroClient:
         body = r.json()
         access_token = body["access_token"]
         refresh_token = body["refresh_token"]
+        self.update_refresh_token(refresh_token)
 
         self.headers = {
             'Accept': 'application/json',
@@ -34,14 +35,18 @@ class XeroClient:
     def update_refresh_token(self, refresh_token):
         gitlab_token = os.getenv('GITLAB_PRIVATE_TOKEN', None)
         if gitlab_token:
+
             project_id = os.getenv('CI_PROJECT_ID', None)
+            print("update refresh token:" + refresh_token + "," + project_id)
             headers = {
                 'PRIVATE-TOKEN': gitlab_token,
                 'Content-Type': 'application/x-www-form-urlencoded'
             }
-            requests.post('https://gitlab.com/api/v4/projects/' + project_id + '/variables/REFRESH_TOKEN', headers=headers, data={
+            r = requests.put('https://gitlab.com/api/v4/projects/' + project_id + '/variables/REFRESH_TOKEN', headers=headers, data={
                 'value': refresh_token
             })
+            if r.status_code != 200:
+                raise Exception(r.content)
 
     def get_request(self, url):
         response = None

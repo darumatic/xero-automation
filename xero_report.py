@@ -31,9 +31,10 @@ class XeroReport:
         if self.start_time is None:
             now = datetime.datetime.utcnow()
             today = now.replace(year=now.year, month=now.month, day=now.day, hour=0, minute=0, second=0, microsecond=0)
-            self.start_time = today.replace(day=1) - self.SYDNEY_TIME_OFFSET
-            self.end_time = datetime.date(today.year, today.month, calendar.monthrange(today.year, today.month)[-1]) - self.SYDNEY_TIME_OFFSET
+            self.start_time = today.replace(day=1)
+            self.end_time = datetime.datetime(today.year, today.month, calendar.monthrange(today.year, today.month)[-1])
 
+        print("start time: %s, end time: %s" % (self.start_time, self.end_time))
         self.xero_client = XeroClient(self.client_id, self.client_secret, self.tenant_id, self.refresh_token)
 
     def add_project_times(self, start_time, end_time):
@@ -239,11 +240,10 @@ class XeroReport:
 
     def validate_active_projects_time_limits(self, reporter):
         month_start = self.start_time
-        month_end = self.end_time + self.SYDNEY_TIME_OFFSET
+        month_end = self.end_time
         start_validation_time = '2017-02-20'
-        self.add_project_times(start_validation_time, None)
         end_validation_time = self.start_time + datetime.timedelta(days=5000)
-        self.add_project_times(None, end_validation_time.strftime('%Y-%m-%d'))
+        self.add_project_times(start_validation_time, end_validation_time.strftime('%Y-%m-%d'))
         start_validation_time, end_validation_time = self.start_time, self.end_time
 
         print('Validating Active Projects..')
@@ -289,9 +289,9 @@ if __name__ == "__main__":
     args = parser.parse_args(sys.argv[2:])
     reporter = XeroReport(args)
 
-    if command == "validate":
+    if command == "report":
         reporter.create_monthly_time_sheets(reporter)
-    elif command == "report":
+    elif command == "validate":
         reporter.validate_active_projects_time_limits(reporter)
     else:
         print("Invalid command")

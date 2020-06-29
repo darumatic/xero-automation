@@ -12,4 +12,9 @@ workspace.xml
 xero-automation-master.iml
 public_privatekey.pfx
 publickey.cer
+/venv/
+/build/
+/dist/
+*.iml
+*.egg-info
 

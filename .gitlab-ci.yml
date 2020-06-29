@@ -2,6 +2,10 @@
 # Official docker image.
 image: docker:latest
 
+stages:
+  - build
+  - run
+
 services:
   - docker:dind
 
@@ -24,3 +28,9 @@ build:
   except:
     - master
 
+run:
+  stage: run
+  script:
+    - |
+      docker run --rm $CI_REGISTRY_IMAGE:latest /usr/bin/python /opt/xero_automation/xero_report.py $COMMAND --client-id=$CLIENT_ID --client-secret=$CLIENT_SECRET --refresh-token=$REFRESH_TOKEN
+      --tenant-id==$TENANT_ID --start-time=$START_TIME --end-time=$END_TIME

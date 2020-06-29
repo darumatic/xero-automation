@@ -1,78 +1,27 @@
 #!/usr/bin/env python
 
 import argparse
+import calendar
 import datetime
-import json
 import os
 import pprint
 import random
 import shutil
 import sys
-from BaseHTTPServer import BaseHTTPRequestHandler, HTTPServer
 
 import pdfkit
 import pystache
-from requests_oauthlib import OAuth2Session
 
 from xero_client import XeroClient
 
-os.environ['OAUTHLIB_INSECURE_TRANSPORT'] = '1'
-PORT_NUMBER = 3000
-REDIRECT_URI = 'http://localhost:' + str(PORT_NUMBER)
-SCOPE = ['offline_access', 'projects', 'openid', 'accounting.contacts', ]
-
-client_id = ''
-client_secret = ''
-server_state = True
-
-
-class oauth_callback_handler(BaseHTTPRequestHandler):
-    def do_GET(self):
-        global client_id
-        global client_secret
-        global server_state
-
-        print client_id
-        print client_secret
-
-        if (not self.path.startswith("/?")):
-            self.send_response(200)
-            self.send_header('Content-type', 'text/html')
-            self.end_headers()
-            return
-
-        callback_url = REDIRECT_URI + self.path
-        token = oauth.fetch_token('https://identity.xero.com/connect/token', authorization_response=callback_url, client_secret=client_secret)
-        connections = oauth.get("https://api.xero.com/connections").json()
-        if len(connections) == 0:
-            print 'Error, no connections.'
-            return
-
-        config = {
-            "client_id": client_id,
-            "refresh_token": token['refresh_token'],
-            "tenant_id": connections[0]['tenantId']
-        }
-
-        config_path = os.path.join(os.path.expanduser('~'), "xero-" + args.client_id + ".json")
-        print "Write Xero client %s credential to %s" % (client_id, config_path)
-        with open(config_path, 'w') as outfile:
-            json.dump(config, outfile)
-
-        self.send_response(200)
-        self.send_header('Content-type', 'text/html')
-        self.end_headers()
-        self.wfile.write("<html><script>window.close();</script></html>")
-        self.wfile.close()
-        server_state = False
-
 
 class XeroReport:
-    def __init__(self, args, config):
+    def __init__(self, args):
         self.SYDNEY_TIME_OFFSET = datetime.timedelta(hours=11)
         self.client_id = args.client_id
         self.client_secret = args.client_secret
-        self.tenant_id = config["tenant_id"]
+        self.tenant_id = args.tenant_id
+        self.refresh_token = args.refresh_token
         self.cache_users = {}
         self.cache_tasks = {}
         self.duration_weeks = 2
@@ -82,19 +31,16 @@ class XeroReport:
         if self.start_time is None:
             now = datetime.datetime.utcnow()
             today = now.replace(year=now.year, month=now.month, day=now.day, hour=0, minute=0, second=0, microsecond=0)
-            next_sunday = today + datetime.timedelta(days=6 - today.weekday())
-            self.start_time = next_sunday - datetime.timedelta(days=7 * self.duration_weeks - 1)
-            self.end_time = next_sunday
-            self.end_time = self.end_time.replace(year=self.end_time.year, month=self.end_time.month,
-                                                  day=self.end_time.day, hour=23, minute=59,
-                                                  second=59, microsecond=999)
+            self.start_time = today.replace(day=1) - self.SYDNEY_TIME_OFFSET
+            self.end_time = datetime.date(today.year, today.month, calendar.monthrange(today.year, today.month)[-1]) - self.SYDNEY_TIME_OFFSET
 
-        self.xero_client = XeroClient(self.client_id, self.client_secret, config)
+        self.xero_client = XeroClient(self.client_id, self.client_secret, self.tenant_id, self.refresh_token)
 
     def add_project_times(self, start_time, end_time):
         if start_time:
             # adjust UTC to Sydney tz
             self.start_time = datetime.datetime.strptime(start_time + 'Z', '%Y-%m-%dZ') - self.SYDNEY_TIME_OFFSET
+
         if end_time:
             # adjust UTC to Sydney tz
             self.end_time = datetime.datetime.strptime(end_time + 'Z', '%Y-%m-%dZ') - self.SYDNEY_TIME_OFFSET
@@ -328,29 +274,21 @@ if __name__ == "__main__":
     current_dir = os.path.dirname(os.path.realpath(__file__))
 
     parser = argparse.ArgumentParser("Generate Xero project reports")
-    parser.add_argument('--client_id', type=str)
-    parser.add_argument('--client_secret', type=str)
-    parser.add_argument('--start_time', type=str)
-    parser.add_argument('--end_time', type=str)
+    parser.add_argument('--client-id', type=str, required=True)
+    parser.add_argument('--client-secret', type=str, required=True)
+    parser.add_argument('--refresh-token', type=str, required=True)
+    parser.add_argument('--tenant-id', type=str, required=True)
+    parser.add_argument('--start-time', type=str, required=False)
+    parser.add_argument('--end-time', type=str, required=False)
     parser.add_argument('--output', type=str, default=os.path.join(current_dir, "out"))
 
-    args = parser.parse_args(sys.argv[1:])
-    client_id = args.client_id
-    client_secret = args.client_secret
+    command = sys.argv[1]
+    args = parser.parse_args(sys.argv[2:])
+    reporter = XeroReport(args)
 
-    config_path = os.path.join(os.path.expanduser('~'), "xero-" + args.client_id + ".json")
-    if not os.path.exists(config_path):
-        oauth = OAuth2Session(args.client_id, redirect_uri=REDIRECT_URI, scope=SCOPE)
-        authorization_url, state = oauth.authorization_url('https://login.xero.com/identity/connect/authorize', access_type="offline", prompt="select_account")
-
-        print "Please open the following URL in your browser:"
-        print authorization_url
-        server = HTTPServer(('', PORT_NUMBER), oauth_callback_handler)
-        while server_state:
-            server.handle_request()
-
-    with open(config_path) as json_file:
-        config = json.load(json_file)
-
-    reporter = XeroReport(args, config)
-    reporter.create_monthly_time_sheets(reporter)
+    if command == "validate":
+        reporter.create_monthly_time_sheets(reporter)
+    elif command == "report":
+        reporter.validate_active_projects_time_limits(reporter)
+    else:
+        print("Invalid command")

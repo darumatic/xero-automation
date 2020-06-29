@@ -8,7 +8,7 @@ import requests
 
 
 class XeroClient:
-    def __init__(self, client_id, client_secret, config):
+    def __init__(self, client_id, client_secret, tenant_id, refresh_token):
         headers = {
             'authorization': "Basic " + base64.b64encode(client_id + ":" + client_secret),
             'Content-Type': 'application/x-www-form-urlencoded'
@@ -16,23 +16,32 @@ class XeroClient:
 
         r = requests.post('https://identity.xero.com/connect/token', headers=headers, data={
             'grant_type': 'refresh_token',
-            'refresh_token': config["refresh_token"]
+            'refresh_token': refresh_token
         })
 
         body = r.json()
         access_token = body["access_token"]
-        config["refresh_token"] = body["refresh_token"]
-        config_path = os.path.join(os.path.expanduser('~'), "xero-" + client_id + ".json")
-        with open(config_path, 'w') as outfile:
-            json.dump(config, outfile)
+        refresh_token = body["refresh_token"]
 
         self.headers = {
             'Accept': 'application/json',
             'Authorization': "Bearer " + access_token,
-            'Xero-tenant-id': config["tenant_id"]
+            'Xero-tenant-id': tenant_id
         }
         self.MAX_TRIES = 9
         self.cache = {}
+
+    def update_refresh_token(self, refresh_token):
+        gitlab_token = os.getenv('GITLAB_PRIVATE_TOKEN', None)
+        if gitlab_token:
+            project_id = os.getenv('CI_PROJECT_ID', None)
+            headers = {
+                'PRIVATE-TOKEN': gitlab_token,
+                'Content-Type': 'application/x-www-form-urlencoded'
+            }
+            requests.post('https://gitlab.com/api/v4/projects/' + project_id + '/variables/REFRESH_TOKEN', headers=headers, data={
+                'value': refresh_token
+            })
 
     def get_request(self, url):
         response = None

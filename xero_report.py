@@ -34,7 +34,9 @@ class XeroReport:
             self.start_time = today.replace(day=1)
             self.end_time = datetime.datetime(today.year, today.month, calendar.monthrange(today.year, today.month)[-1])
 
-        print("start time: %s, end time: %s" % (self.start_time, self.end_time))
+        print("client=%s,secret=%s,tenant=%s,refreshtoken=%s,start time=%s, end time=%s" % (self.client_id, self.client_secret, self.tenant_id, self.refresh_token, self.start_time, self.end_time))
+        print("GITLAB_PRIVATE_TOKEN=%s", os.getenv('GITLAB_PRIVATE_TOKEN', None))
+        print("CI_PROJECT_ID=%s", os.getenv('CI_PROJECT_ID', None))
         self.xero_client = XeroClient(self.client_id, self.client_secret, self.tenant_id, self.refresh_token)
 
     def add_project_times(self, start_time, end_time):

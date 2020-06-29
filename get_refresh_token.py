@@ -36,7 +36,7 @@ class oauth_callback_handler(BaseHTTPRequestHandler):
             print 'Error, no connections.'
             return
 
-        print "TENENT_ID:%s" % connections[0]['tenantId']
+        print "TENANT_ID:%s" % connections[0]['tenantId']
         print "REFRESH_TOKEN:%s" % token['refresh_token'],
 
         self.send_response(200)

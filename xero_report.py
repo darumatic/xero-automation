@@ -380,6 +380,7 @@ if __name__ == "__main__":
         reporter.create_monthly_time_sheets(reporter)
     elif command == "validate":
         if not(reporter.validate_active_projects_time_limits(reporter)):
-            raise RuntimeError("The Validate function didn't succeed. Please check the logs above.")
+            print("The Validate function didn't succeed. Please check the logs above for more information.")
+            sys.exit(1)
     else:
         print("Invalid command")

@@ -38,3 +38,5 @@ run:
   stage: run
   script:
     - docker run -e GITLAB_PRIVATE_TOKEN=$GITLAB_PRIVATE_TOKEN -e CI_PROJECT_ID=$CI_PROJECT_ID $DOCKER_IMAGE /usr/bin/python /opt/xero_automation/xero_report.py $COMMAND --client-id=$CLIENT_ID --client-secret=$CLIENT_SECRET --refresh-token=$REFRESH_TOKEN --tenant-id=$TENANT_ID
+  only:
+    - master

@@ -67,18 +67,21 @@ class XeroReport:
         }
 
     def add_project_times(self, start_time, end_time):
+        now = datetime.datetime.utcnow()
         if start_time:
             #adjust UTC to Sydney tz
             self.start_time = datetime.datetime.strptime(start_time + 'Z', '%Y-%m-%dZ') - self.SYDNEY_TIME_OFFSET
         else:
-            self.start_time = None
+            self.start_time = now.replace(day=1)
         if end_time:
             #adjust UTC to Sydney tz
             self.end_time = datetime.datetime.strptime(end_time + 'Z', '%Y-%m-%dZ') - self.SYDNEY_TIME_OFFSET
             #shift to the last second of the day
             self.end_time = self.end_time + datetime.timedelta(hours=23, minutes=59, seconds=59)
         else:
-            self.end_time = None
+            self.end_time = now
+            last_day = day=calendar.monthrange(now.year, now.month)[1]
+            self.end_time = self.end_time.replace(day=last_day)
 
     def validate(self, output_dir, project_id, start_month, end_month):
         VALIDATION_ERROR = "Validation Error: "
@@ -366,8 +369,8 @@ if __name__ == "__main__":
     parser.add_argument('--client-secret', type=str, required=True)
     parser.add_argument('--refresh-token', type=str, required=True)
     parser.add_argument('--tenant-id', type=str, required=True)
-    parser.add_argument('--start-time', type=str, required=False)
-    parser.add_argument('--end-time', type=str, required=False)
+    parser.add_argument('--start-time', type=str, required=False, default=None)
+    parser.add_argument('--end-time', type=str, required=False, default=None)
     parser.add_argument('--output', type=str, default=os.path.join(current_dir, "out"))
 
     command = sys.argv[1]

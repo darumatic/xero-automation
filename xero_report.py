@@ -28,8 +28,6 @@ class XeroReport:
         self.output = args.output
 
         self.add_project_times(args.start_time, args.end_time)
-        self.filter = str(self.start_time)[0:4] + str(self.start_time)[5:7]
-        print("Project Filter: {0}".format(self.filter))
 
         #print("client=%s,secret=%s,tenant=%s,refreshtoken=%s,start time=%s, end time=%s" % (self.client_id, self.client_secret, self.tenant_id, self.refresh_token, self.start_time, self.end_time))
         #print("GITLAB_PRIVATE_TOKEN=%s", os.getenv('GITLAB_PRIVATE_TOKEN', None))
@@ -58,6 +56,8 @@ class XeroReport:
 
     def add_project_times(self, start_time, end_time):
         now = datetime.datetime.utcnow()
+        self.filter = str(now)[0:4] + str(now)[5:7]
+        print("Project Filter: {0}".format(self.filter))
         if start_time:
             #adjust UTC to Sydney tz
             self.start_time = datetime.datetime.strptime(start_time + 'Z', '%Y-%m-%dZ') - self.SYDNEY_TIME_OFFSET
@@ -358,6 +358,7 @@ class XeroReport:
         else:
             print("There were a total of {0} errors.".format(amount_of_errors))
             return False
+        return True
 
 
 if __name__ == "__main__":
@@ -384,3 +385,6 @@ if __name__ == "__main__":
             sys.exit(1)
     else:
         print("Invalid command")
+        sys.exit(1)
+    print("Successful execution!")
+    sys.exit(0)

@@ -3,6 +3,7 @@
 image: docker:latest
 
 stages:
+  - build
   - run
 services:
   - docker:dind

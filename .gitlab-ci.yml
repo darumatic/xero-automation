@@ -3,6 +3,7 @@
 image: docker:latest
 
 stages:
+  - build
   - run
 services:
   - docker:dind
@@ -21,8 +22,10 @@ build-master:
 build:
   stage: build
   script:
-    - docker build --pull -t "$CI_REGISTRY_IMAGE:$CI_COMMIT_REF_SLUG" .
-    - docker push "$CI_REGISTRY_IMAGE:$CI_COMMIT_REF_SLUG"
+    - echo ls
+    #- docker push "$CI_REGISTRY_IMAGE:$CI_COMMIT_REF_SLUG"
+    #- docker build --pull -t "$CI_REGISTRY_IMAGE:$CI_COMMIT_REF_SLUG" .
+    #- docker push "$CI_REGISTRY_IMAGE:$CI_COMMIT_REF_SLUG"
   except:
     - master
 

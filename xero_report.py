@@ -28,16 +28,6 @@ class XeroReport:
         self.output = args.output
 
         self.add_project_times(args.start_time, args.end_time)
-        if self.start_time is None:
-            now = datetime.datetime.utcnow()
-            today = now.replace(year=now.year, month=now.month, day=now.day, hour=0, minute=0, second=0, microsecond=0)
-            next_sunday = today + datetime.timedelta(days=6 - today.weekday())
-            self.start_time = next_sunday - datetime.timedelta(days=7 * self.duration_weeks - 1)
-            self.end_time = next_sunday
-            self.end_time = self.end_time.replace(year=self.end_time.year, month=self.end_time.month,
-                                                  day=self.end_time.day, hour=23, minute=59,
-                                                  second=59, microsecond=999)
-            print("START_TIME: {0}".format(self.start_time))
         self.filter = str(self.start_time)[0:4] + str(self.start_time)[5:7]
         print("Project Filter: {0}".format(self.filter))
 
@@ -82,6 +72,14 @@ class XeroReport:
             self.end_time = now
             last_day = day=calendar.monthrange(now.year, now.month)[1]
             self.end_time = self.end_time.replace(day=last_day)
+
+        #adjust UTC to Sydney tz
+        self.start_time = datetime.datetime.strptime(start_time + 'Z', '%Y-%m-%dZ') - self.SYDNEY_TIME_OFFSET
+        #adjust UTC to Sydney tz
+        self.end_time = datetime.datetime.strptime(end_time + 'Z', '%Y-%m-%dZ') - self.SYDNEY_TIME_OFFSET
+        #shift to the last second of the day
+        self.end_time = self.end_time + datetime.timedelta(hours=23, minutes=59, seconds=59)
+
 
     def validate(self, output_dir, project_id, start_month, end_month):
         VALIDATION_ERROR = "Validation Error: "

@@ -74,9 +74,10 @@ class XeroReport:
             self.end_time = self.end_time.replace(day=last_day)
 
         #adjust UTC to Sydney tz
-        self.start_time = datetime.datetime.strptime(start_time + 'Z', '%Y-%m-%dZ') - self.SYDNEY_TIME_OFFSET
+        #self.start_time = datetime.datetime.strptime(self.start_time + 'Z', '%Y-%m-%dZ') - self.SYDNEY_TIME_OFFSET
+        self.start_time = self.start_time - self.SYDNEY_TIME_OFFSET
         #adjust UTC to Sydney tz
-        self.end_time = datetime.datetime.strptime(end_time + 'Z', '%Y-%m-%dZ') - self.SYDNEY_TIME_OFFSET
+        self.end_time = self.end_time - self.SYDNEY_TIME_OFFSET
         #shift to the last second of the day
         self.end_time = self.end_time + datetime.timedelta(hours=23, minutes=59, seconds=59)
 

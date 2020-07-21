@@ -5,7 +5,7 @@ RUN apt update && apt-get install -y build-essential libssl-dev libffi-dev wkhtm
 
 # Install wkhtmltopdf to support headless
 RUN wget https://github.com/wkhtmltopdf/packaging/releases/download/0.12.6-1/wkhtmltox_0.12.6-1.bionic_amd64.deb -P /tmp
-RUN dpkg -i /tmp/wkhtmltox_0.12.5-1.bionic_amd64.deb
+RUN dpkg -i /tmp/wkhtmltox_0.12.6-1.bionic_amd64.deb
 
 # Create app directory
 RUN mkdir -p /opt/xero_automation

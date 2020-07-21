@@ -5,7 +5,6 @@ image: docker:latest
 stages:
   - build
   - run
-
 services:
   - docker:dind
 
@@ -17,12 +16,17 @@ build-master:
   script:
     - docker build --pull -t "$CI_REGISTRY_IMAGE" .
     - docker push "$CI_REGISTRY_IMAGE"
+    - export TAG_IMAGE=$CI_REGISTRY_IMAGE:$CI_COMMIT_REF_SLUG-`date +%Y%m%d-%H%M`
+    - docker tag "$CI_REGISTRY_IMAGE" $TAG_IMAGE 
+    - docker push $TAG_IMAGE
+    - echo ls
   only:
     - master
 
 build:
   stage: build
   script:
+    - docker push "$CI_REGISTRY_IMAGE:$CI_COMMIT_REF_SLUG"
     - docker build --pull -t "$CI_REGISTRY_IMAGE:$CI_COMMIT_REF_SLUG" .
     - docker push "$CI_REGISTRY_IMAGE:$CI_COMMIT_REF_SLUG"
   except:

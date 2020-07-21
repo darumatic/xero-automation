@@ -37,7 +37,7 @@ class XeroClient:
         if gitlab_token:
 
             project_id = os.getenv('CI_PROJECT_ID', None)
-            print("update refresh token:" + refresh_token + "," + project_id)
+            #print("update refresh token:" + refresh_token + "," + project_id)
             headers = {
                 'PRIVATE-TOKEN': gitlab_token,
                 'Content-Type': 'application/x-www-form-urlencoded'
@@ -47,6 +47,10 @@ class XeroClient:
             })
             if r.status_code != 200:
                 raise Exception(r.content)
+        else:
+            print("*************************************************************")
+            print("New Refresh token: {0}".format(refresh_token))
+            print("*************************************************************")
 
     def get_request(self, url):
         response = None

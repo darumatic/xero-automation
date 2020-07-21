@@ -31,24 +31,51 @@ class XeroReport:
         if self.start_time is None:
             now = datetime.datetime.utcnow()
             today = now.replace(year=now.year, month=now.month, day=now.day, hour=0, minute=0, second=0, microsecond=0)
-            self.start_time = today.replace(day=1)
-            self.end_time = datetime.datetime(today.year, today.month, calendar.monthrange(today.year, today.month)[-1])
+            next_sunday = today + datetime.timedelta(days=6 - today.weekday())
+            self.start_time = next_sunday - datetime.timedelta(days=7 * self.duration_weeks - 1)
+            self.end_time = next_sunday
+            self.end_time = self.end_time.replace(year=self.end_time.year, month=self.end_time.month,
+                                                  day=self.end_time.day, hour=23, minute=59,
+                                                  second=59, microsecond=999)
+            print("START_TIME: {0}".format(self.start_time))
+        self.filter = str(self.start_time)[0:4] + str(self.start_time)[5:7]
+        print("Project Filter: {0}".format(self.filter))
 
-        print("client=%s,secret=%s,tenant=%s,refreshtoken=%s,start time=%s, end time=%s" % (self.client_id, self.client_secret, self.tenant_id, self.refresh_token, self.start_time, self.end_time))
-        print("GITLAB_PRIVATE_TOKEN=%s", os.getenv('GITLAB_PRIVATE_TOKEN', None))
+        #print("client=%s,secret=%s,tenant=%s,refreshtoken=%s,start time=%s, end time=%s" % (self.client_id, self.client_secret, self.tenant_id, self.refresh_token, self.start_time, self.end_time))
+        #print("GITLAB_PRIVATE_TOKEN=%s", os.getenv('GITLAB_PRIVATE_TOKEN', None))
         print("CI_PROJECT_ID=%s", os.getenv('CI_PROJECT_ID', None))
         self.xero_client = XeroClient(self.client_id, self.client_secret, self.tenant_id, self.refresh_token)
+        #TODO: change this with the Xero Contacts data
+        self.owners = {
+            'OpenShift Implementation  - ': 'Neil Gooden',
+            'Non chargeable tasks  - ': 'Adrian Deccico',
+            'Development  - ': 'Karen Yeow',
+            'Digital Applications  - ': 'Karen Yeow',
+            'DevOps  - ': 'Ferdinand Matillano / Lisa Asquith',
+            'OneGov  - ': 'Ferdinand Matillano / Lisa Asquith',
+            'Cloud migration 6_2019  - ': 'Peter Walker',
+            'API Team May 20  - ': 'Angel Cheung / Rahul Dutta',
+            'API Team Dec 19  - ': 'Angel Cheung / Rahul Dutta',
+            'DLP Development  - ': 'Yiannis Godfrey / Mel Faeghy',
+            'MyAccount  - ': 'Andrew Lawrence / Rahul Dutta',
+            'EKS DevOps  - ': 'Dave Jarvis / Michael Cracroft',
+            'DLP Support  - ': 'Dave Jarvis / Michael Cracroft',
+            'TUO Divya  - ': 'Kiril Keis / Rahul Dutta',
+            'TUO Faisal  - ': 'Kiril Keis / Rahul Dutta',
+            'TUO Shishir  - ': 'Kiril Keis / Rahul Dutta',
+            'TUO May 2020  - ': 'Kiril Keis / Rahul Dutta'
+        }
 
     def add_project_times(self, start_time, end_time):
         if start_time:
-            # adjust UTC to Sydney tz
+            #adjust UTC to Sydney tz
             self.start_time = datetime.datetime.strptime(start_time + 'Z', '%Y-%m-%dZ') - self.SYDNEY_TIME_OFFSET
         else:
             self.start_time = None
         if end_time:
-            # adjust UTC to Sydney tz
+            #adjust UTC to Sydney tz
             self.end_time = datetime.datetime.strptime(end_time + 'Z', '%Y-%m-%dZ') - self.SYDNEY_TIME_OFFSET
-            # shift to the last second of the day
+            #shift to the last second of the day
             self.end_time = self.end_time + datetime.timedelta(hours=23, minutes=59, seconds=59)
         else:
             self.end_time = None
@@ -60,7 +87,7 @@ class XeroReport:
 
         for tasks in project_data['tasks']:
             for item in tasks['items']:
-                task_date = datetime.datetime.strptime(item['date'], '%d-%b-%Y')
+                task_date = datetime.datetime.strptime(item['date'],'%d-%b-%Y')
                 if task_date < start_month or task_date > end_month:
                     error = "{0} Out Of The Month Range - {1}".format(VALIDATION_ERROR, item)
                     print(error)
@@ -120,8 +147,15 @@ class XeroReport:
     def generate_report(self, output_dir, project_id):
         print 'Generate report, project id=%s' % project_id
         data = self.load_data(project_id)
+
+        #pdf
         html = self.generate_html(data)
         self.generate_pdf(html, os.path.join(output_dir, self.report_name(project_id)))
+        #xls
+        project_name = data['projectName'].replace("/", "_")
+        output_file = os.path.join(output_dir, project_name.replace(" ", "_") + '.xls')
+        self.generate_xls(data, output_file, project_name)
+
 
     def generate_html(self, data):
         template_file_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'report.html')
@@ -131,6 +165,55 @@ class XeroReport:
 
     def generate_pdf(self, html, output_file):
         pdfkit.from_string(html, output_file)
+
+    def generate_xls(self, data, output_file, project_name):
+        workbook = Workbook()
+        workbook.remove_sheet(workbook.get_active_sheet())
+
+        time_list = data
+
+        #Write Header
+        workbook_sheet = workbook.create_sheet(title=project_name)
+        workbook_sheet.cell(row=1, column=1, value="Detailed Time")
+        workbook_sheet.cell(row=2, column=1, value="Darumatic Pty Ltd")
+        workbook_sheet.cell(row=3, column=1, value="For the period {} to {}".format(data['startTime'], data['endTime']))
+        workbook_sheet.cell(row=6, column=1, value="Date")
+        workbook_sheet.cell(row=6, column=2, value="Staff")
+        workbook_sheet.cell(row=6, column=3, value="Task")
+        workbook_sheet.cell(row=6, column=4, value="Description")
+        workbook_sheet.cell(row=6, column=5, value="Total Time")
+        workbook_sheet.cell(row=6, column=6, value="Project Name")
+        workbook_sheet.cell(row=6, column=7, value="PO")
+        workbook_sheet.cell(row=6, column=8, value="Project Owner")
+        workbook_sheet.cell(row=4, column=1, value=project_name)
+
+        ROW_OFFSET = 8
+
+        PO = '' if not 'PO' in project_name else project_name.split()[project_name.split().index('PO') + 1]
+
+        short_project_name = project_name if not "-" in project_name else project_name[:project_name.index("-")]
+        short_project_name_with_suffix = "{} - ".format(short_project_name)
+        owner = ""
+        if short_project_name_with_suffix in self.owners.keys():
+            owner = self.owners[short_project_name_with_suffix]
+        else:
+            raise Exception("Owner for proj '{}' not found".format(short_project_name_with_suffix))
+
+        i_row = ROW_OFFSET
+        for consultant in time_list['tasks']:
+            for i, item in enumerate(consultant['items']):
+                i_row = i_row + 1
+                workbook_sheet.cell(row=i_row, column=1, value=item['date'])
+                workbook_sheet.cell(row=i_row, column=2, value=item['userName'])
+                workbook_sheet.cell(row=i_row, column=3, value=item['taskName'])
+                workbook_sheet.cell(row=i_row, column=4, value=item['taskDescription'])
+                workbook_sheet.cell(row=i_row, column=5, value=item['duration'])
+                workbook_sheet.cell(row=i_row, column=6, value=short_project_name)
+                workbook_sheet.cell(row=i_row, column=7, value=PO)
+                workbook_sheet.cell(row=i_row, column=8, value=owner)
+
+        workbook.save(output_file)
+        print("Saving workbook in {}".format(output_file))
 
     def report_name(self, project_id):
         project = self.xero_client.project(project_id)
@@ -182,7 +265,7 @@ class XeroReport:
         # if (round_up % 2 != 0):
         #     round_up += 1
         # return hours + (round_up / 2 * 0.5)
-        return round(float(minutes) / 60, 3)
+        return round(float(minutes) / 60, 4)
 
     def round_hours_to_days(self, hours):
         return round(float(hours) / 8, 2)
@@ -226,26 +309,25 @@ class XeroReport:
             os.makedirs(self.output)
         else:
             os.makedirs(self.output)
-
-        projects = self.get_all_projects()
-
-        for items in projects:
+        for items in self.get_all_projects():
             for item in items['items']:
-                # if 'OpenShift Implementation - 202001' not in item['name']:
-                #     continue
-                # print 'Generate Xero report for project %s between %s %s to %s' % (
-                #     item["projectId"], self.start_time, self.end_time, self.output)
-                # print("Name: {0}, ProjectID: {1}, Status: {2}, ContactId: {3}".format(item["name"], item["projectId"],
-                #                                                                       item["status"],
-                #                                                                       item["contactId"]))
+                if self.filter not in item['name']:
+                    continue
+                print 'Generate Xero report for project %s between %s %s to %s' % (
+                    item["projectId"], self.start_time, self.end_time, self.output)
+                print("Name: {0}, ProjectID: {1}, Status: {2}, ContactId: {3}".format(item["name"], item["projectId"],
+                                                                                      item["status"],
+                                                                                      item["contactId"]))
                 reporter.generate_report(self.output, item["projectId"])
+
 
     def validate_active_projects_time_limits(self, reporter):
         month_start = self.start_time
-        month_end = self.end_time
+        month_end = self.end_time + self.SYDNEY_TIME_OFFSET
         start_validation_time = '2017-02-20'
+        self.add_project_times(start_validation_time, None)
         end_validation_time = self.start_time + datetime.timedelta(days=5000)
-        self.add_project_times(start_validation_time, end_validation_time.strftime('%Y-%m-%d'))
+        self.add_project_times(None, end_validation_time.strftime('%Y-%m-%d'))
         start_validation_time, end_validation_time = self.start_time, self.end_time
 
         print('Validating Active Projects..')
@@ -256,7 +338,7 @@ class XeroReport:
 
         for items in self.get_all_projects():
             for item in items['items']:
-                if '202001' not in item['name']:
+                if self.filter not in item['name']:
                     continue
                 print("Name: {0}, ProjectID: {1}, Status: {2}, ContactId: {3}".format(item["name"], item["projectId"],
                                                                                       item["status"],
@@ -273,6 +355,7 @@ class XeroReport:
             print("There are no errors. All tasks are validated successfully!!")
         else:
             print("There were a total of {0} errors.".format(amount_of_errors))
+            return False
 
 
 if __name__ == "__main__":
@@ -294,6 +377,7 @@ if __name__ == "__main__":
     if command == "report":
         reporter.create_monthly_time_sheets(reporter)
     elif command == "validate":
-        reporter.validate_active_projects_time_limits(reporter)
+        if not(reporter.validate_active_projects_time_limits(reporter)):
+            sys.exit(1)
     else:
         print("Invalid command")

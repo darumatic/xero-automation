@@ -18,6 +18,8 @@ from xero_client import XeroClient
 class XeroReport:
     def __init__(self, args):
         self.SYDNEY_TIME_OFFSET = datetime.timedelta(hours=11)
+        self.start_time = None
+        self.end_time = None
         self.client_id = args.client_id
         self.client_secret = args.client_secret
         self.tenant_id = args.tenant_id
@@ -29,8 +31,6 @@ class XeroReport:
 
         self.add_project_times(args.start_time, args.end_time)
 
-        #print("client=%s,secret=%s,tenant=%s,refreshtoken=%s,start time=%s, end time=%s" % (self.client_id, self.client_secret, self.tenant_id, self.refresh_token, self.start_time, self.end_time))
-        #print("GITLAB_PRIVATE_TOKEN=%s", os.getenv('GITLAB_PRIVATE_TOKEN', None))
         print("CI_PROJECT_ID=%s", os.getenv('CI_PROJECT_ID', None))
         self.xero_client = XeroClient(self.client_id, self.client_secret, self.tenant_id, self.refresh_token)
         #TODO: change this with the Xero Contacts data
@@ -58,28 +58,25 @@ class XeroReport:
         now = datetime.datetime.utcnow()
         self.filter = str(now)[0:4] + str(now)[5:7]
         print("Project Filter: {0}".format(self.filter))
+        #set time stamps as per parameters
         if start_time:
             #adjust UTC to Sydney tz
             self.start_time = datetime.datetime.strptime(start_time + 'Z', '%Y-%m-%dZ') - self.SYDNEY_TIME_OFFSET
-        else:
-            self.start_time = now.replace(day=1)
         if end_time:
             #adjust UTC to Sydney tz
             self.end_time = datetime.datetime.strptime(end_time + 'Z', '%Y-%m-%dZ') - self.SYDNEY_TIME_OFFSET
             #shift to the last second of the day
             self.end_time = self.end_time + datetime.timedelta(hours=23, minutes=59, seconds=59)
-        else:
-            self.end_time = now
-            last_day = day=calendar.monthrange(now.year, now.month)[1]
-            self.end_time = self.end_time.replace(day=last_day)
 
-        #adjust UTC to Sydney tz
-        #self.start_time = datetime.datetime.strptime(self.start_time + 'Z', '%Y-%m-%dZ') - self.SYDNEY_TIME_OFFSET
-        self.start_time = self.start_time - self.SYDNEY_TIME_OFFSET
-        #adjust UTC to Sydney tz
-        self.end_time = self.end_time - self.SYDNEY_TIME_OFFSET
-        #shift to the last second of the day
-        self.end_time = self.end_time + datetime.timedelta(hours=23, minutes=59, seconds=59)
+        #set up defaults unless they were setup before
+        if not self.start_time:
+            self.start_time = datetime.datetime.strptime(self.filter + "01" + 'Z', '%Y%m%dZ') - self.SYDNEY_TIME_OFFSET
+        if not self.end_time:
+            last_day = calendar.monthrange(now.year, now.month)[1]
+            end_time_str = "{0}{1}Z".format(self.filter, last_day)
+            self.end_time = datetime.datetime.strptime(end_time_str, '%Y%m%dZ') - self.SYDNEY_TIME_OFFSET
+            #shift to the last second of the day
+            self.end_time = self.end_time + datetime.timedelta(hours=23, minutes=59, seconds=59)
 
 
     def validate(self, output_dir, project_id, start_month, end_month):
@@ -262,11 +259,6 @@ class XeroReport:
         return ret
 
     def round_minutes_to_hours(self, minutes):
-        # hours = int(minutes / 60)
-        # round_up = (minutes % 60) / 15
-        # if (round_up % 2 != 0):
-        #     round_up += 1
-        # return hours + (round_up / 2 * 0.5)
         return round(float(minutes) / 60, 4)
 
     def round_hours_to_days(self, hours):
@@ -326,15 +318,27 @@ class XeroReport:
     def validate_active_projects_time_limits(self, reporter):
         month_start = self.start_time
         month_end = self.end_time + self.SYDNEY_TIME_OFFSET
-        start_validation_time = '2017-02-20'
+        DARUMATIC_INIT_TIME = '2017-02-20'
+        start_validation_time = DARUMATIC_INIT_TIME
         self.add_project_times(start_validation_time, None)
         end_validation_time = self.start_time + datetime.timedelta(days=5000)
         self.add_project_times(None, end_validation_time.strftime('%Y-%m-%d'))
         start_validation_time, end_validation_time = self.start_time, self.end_time
 
         print('Validating Active Projects..')
-        print("Start Validation Time:{0} \n End Validation time:{1} \n Start Month:{2} \n End Month:{3}".format(
-            start_validation_time, end_validation_time, month_start, month_end))
+        print("Start Validation Time:{0} \n "
+              "End Validation time:{1} \n "
+              "Start Month:{2} \n "
+              "End Month:{3} \n"
+              "Start Time:{4} \n"
+              "End Time:{5}".format(
+            start_validation_time,
+            end_validation_time,
+            month_start,
+            month_end,
+            self.start_time,
+            self.end_time
+        ))
         errors = {}
         amount_of_errors = 0
 

@@ -8,6 +8,7 @@ import pprint
 import random
 import shutil
 import sys
+import json
 
 import pdfkit
 import pystache
@@ -289,6 +290,14 @@ class XeroReport:
             os.makedirs(self.output)
         else:
             os.makedirs(self.output)
+
+        # save data into /data/data.json
+        if not os.path.exists("./data"):
+            os.mkdir("./data")
+        f = open("data/data.json", "w+")
+        json.dump(self.get_active_projects(), f)
+        f.close()
+
         for items in self.get_all_projects():
             for item in items['items']:
                 if self.filter not in item['name']:

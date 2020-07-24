@@ -14,7 +14,6 @@ import pystache
 
 from xero_client import XeroClient
 
-
 class XeroReport:
     def __init__(self, args):
         self.SYDNEY_TIME_OFFSET = datetime.timedelta(hours=11)
@@ -34,25 +33,10 @@ class XeroReport:
         print("CI_PROJECT_ID=%s", os.getenv('CI_PROJECT_ID', None))
         self.xero_client = XeroClient(self.client_id, self.client_secret, self.tenant_id, self.refresh_token)
         #TODO: change this with the Xero Contacts data
-        self.owners = {
-            'OpenShift Implementation  - ': 'Neil Gooden',
-            'Non chargeable tasks  - ': 'Adrian Deccico',
-            'Development  - ': 'Karen Yeow',
-            'Digital Applications  - ': 'Karen Yeow',
-            'DevOps  - ': 'Ferdinand Matillano / Lisa Asquith',
-            'OneGov  - ': 'Ferdinand Matillano / Lisa Asquith',
-            'Cloud migration 6_2019  - ': 'Peter Walker',
-            'API Team May 20  - ': 'Angel Cheung / Rahul Dutta',
-            'API Team Dec 19  - ': 'Angel Cheung / Rahul Dutta',
-            'DLP Development  - ': 'Yiannis Godfrey / Mel Faeghy',
-            'MyAccount  - ': 'Andrew Lawrence / Rahul Dutta',
-            'EKS DevOps  - ': 'Dave Jarvis / Michael Cracroft',
-            'DLP Support  - ': 'Dave Jarvis / Michael Cracroft',
-            'TUO Divya  - ': 'Kiril Keis / Rahul Dutta',
-            'TUO Faisal  - ': 'Kiril Keis / Rahul Dutta',
-            'TUO Shishir  - ': 'Kiril Keis / Rahul Dutta',
-            'TUO May 2020  - ': 'Kiril Keis / Rahul Dutta'
-        }
+        #example of environment variable
+        #OWNERS = "{ 'Project A': 'Neil', 'Non chargeable tasks': 'Adrian' }"
+        self.owners = eval(os.environ['OWNERS'])
+        print(self.owners)
 
     def add_project_times(self, start_time, end_time):
         now = datetime.datetime.utcnow()
@@ -191,12 +175,13 @@ class XeroReport:
         PO = '' if not 'PO' in project_name else project_name.split()[project_name.split().index('PO') + 1]
 
         short_project_name = project_name if not "-" in project_name else project_name[:project_name.index("-")]
-        short_project_name_with_suffix = "{} - ".format(short_project_name)
+        #short_project_name_with_suffix = "{} - ".format(short_project_name)
+        short_project_name = short_project_name.strip()
         owner = ""
-        if short_project_name_with_suffix in self.owners.keys():
-            owner = self.owners[short_project_name_with_suffix]
+        if short_project_name in self.owners.keys():
+            owner = self.owners[short_project_name]
         else:
-            raise Exception("Owner for proj '{}' not found".format(short_project_name_with_suffix))
+            raise Exception("Owner for proj '{}' not found".format(short_project_name))
 
         i_row = ROW_OFFSET
         for consultant in time_list['tasks']:

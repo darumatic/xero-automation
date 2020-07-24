@@ -36,3 +36,4 @@ run:
     - docker run -e GITLAB_PRIVATE_TOKEN=$GITLAB_PRIVATE_TOKEN -e CI_PROJECT_ID=$CI_PROJECT_ID --rm $CI_REGISTRY_IMAGE:latest /usr/bin/python3 /opt/xero_automation/xero_report.py $COMMAND --client-id=$CLIENT_ID --client-secret=$CLIENT_SECRET --refresh-token=$REFRESH_TOKEN --tenant-id=$TENANT_ID
   only:
     - master
+    - python3-migraion-2 

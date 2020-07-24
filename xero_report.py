@@ -12,6 +12,7 @@ import sys
 import pdfkit
 import pystache
 
+from openpyxl import Workbook
 from xero_client import XeroClient
 
 class XeroReport:
@@ -96,7 +97,7 @@ class XeroReport:
         total_hours = 0
 
         user_tasks = []
-        for user_id, user_time_list in tasks.iteritems():
+        for user_id, user_time_list in tasks.items():
             user = self.user(user_id)
             user_total_duration = 0
             items = []
@@ -128,7 +129,7 @@ class XeroReport:
         }
 
     def generate_report(self, output_dir, project_id):
-        print 'Generate report, project id=%s' % project_id
+        print('Generate report, project id=%s' % project_id)
         data = self.load_data(project_id)
 
         #pdf
@@ -151,7 +152,7 @@ class XeroReport:
 
     def generate_xls(self, data, output_file, project_name):
         workbook = Workbook()
-        workbook.remove_sheet(workbook.get_active_sheet())
+        workbook.remove_sheet(workbook.active)
 
         time_list = data
 
@@ -292,8 +293,8 @@ class XeroReport:
             for item in items['items']:
                 if self.filter not in item['name']:
                     continue
-                print 'Generate Xero report for project %s between %s %s to %s' % (
-                    item["projectId"], self.start_time, self.end_time, self.output)
+                print('Generate Xero report for project %s between %s %s to %s' % (
+                    item["projectId"], self.start_time, self.end_time, self.output))
                 print("Name: {0}, ProjectID: {1}, Status: {2}, ContactId: {3}".format(item["name"], item["projectId"],
                                                                                       item["status"],
                                                                                       item["contactId"]))

@@ -1,3 +1,3 @@
 cat << EOF > .owners
-OWNERS=${OWNERS}
+${OWNERS}
 EOF

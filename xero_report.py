@@ -359,12 +359,13 @@ class XeroReport:
         print("*" * 80)
         print("List of Validation errors")
         pprint.pprint(errors)
+        print("*" * 80)
         if amount_of_errors == 0:
             print("There are no errors. All tasks are validated successfully!!")
+            return True
         else:
             print("There were a total of {0} errors.".format(amount_of_errors))
             return False
-        return True
 
 
 if __name__ == "__main__":
@@ -387,13 +388,14 @@ if __name__ == "__main__":
         reporter.create_monthly_time_sheets(reporter)
     elif command == "validate":
         if not(reporter.validate_active_projects_time_limits(reporter)):
-            print("The Validate function didn't succeed. Please check the logs above for more information.")
-            print("If any particular task item should not be validated, please add its id to the {0}"
+            print("The Validate function didn't succeed. Please check the logs above for more information. "
+                  "If any particular task item should be skipped, please add its id to the {0}"
                   " environment variable following this format: {1}".format("VALIDATION_EXCEPTIONS",
                                                                             "['task_id1', 'task_id1']"))
             sys.exit(1)
     else:
         print("Invalid command")
         sys.exit(2)
+
     print("Successful execution!")
     sys.exit(0)

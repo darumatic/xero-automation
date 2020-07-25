@@ -18,6 +18,7 @@ class XeroReport:
     def __init__(self, args):
         self.SYDNEY_TIME_OFFSET = datetime.timedelta(hours=11)
         self.MAX_DURATION = 12.0
+        self.CURRENT_DIRECTORY = os.path.dirname(os.path.abspath(__file__))
 
         self.start_time = None
         self.end_time = None
@@ -39,7 +40,12 @@ class XeroReport:
         #TODO: change this with the Xero Contacts data
         #example of environment variable
         #OWNERS = "{ 'Project A': 'Neil', 'Non chargeable tasks': 'Adrian' }"
-        self.OWNERS = eval(os.environ['OWNERS'])
+        OWNERS_FILE = os.path.join(self.CURRENT_DIRECTORY, ".owners")
+        if os.path.isfile(OWNERS_FILE):
+            owners = open(OWNERS_FILE).read(OWNERS_FILE).strip()
+        else:
+            owners = os.environ['OWNERS']
+        self.OWNERS = eval(owners)
         print(self.OWNERS)
 
 

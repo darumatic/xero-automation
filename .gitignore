@@ -17,4 +17,4 @@ publickey.cer
 /dist/
 *.iml
 *.egg-info
-
+.owners

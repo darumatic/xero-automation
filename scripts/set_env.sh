@@ -1,3 +1,3 @@
-cat << EOF > .env
+cat << EOF > .owners
 OWNERS=${OWNERS}
 EOF

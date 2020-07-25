@@ -42,7 +42,7 @@ class XeroReport:
         #OWNERS = "{ 'Project A': 'Neil', 'Non chargeable tasks': 'Adrian' }"
         OWNERS_FILE = os.path.join(self.CURRENT_DIRECTORY, ".owners")
         if os.path.isfile(OWNERS_FILE):
-            owners = open(OWNERS_FILE).read(OWNERS_FILE).strip()
+            owners = open(OWNERS_FILE).read().strip()
         else:
             owners = os.environ['OWNERS']
         self.OWNERS = eval(owners)

@@ -1,3 +1,3 @@
-cat << EOF >> env
-echo OWNER=${OWNER}
+cat << EOF > .env
+OWNERS=${OWNERS}
 EOF

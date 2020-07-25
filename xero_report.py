@@ -34,12 +34,12 @@ class XeroReport:
 
         print("CI_PROJECT_ID=%s", os.getenv('CI_PROJECT_ID', None))
         self.xero_client = XeroClient(self.client_id, self.client_secret, self.tenant_id, self.refresh_token)
+        self.DONT_VALIDATE_THESE_ITEMS = eval(os.environ.get('VALIDATION_EXCEPTIONS', '[]'))
         #TODO: change this with the Xero Contacts data
         #example of environment variable
         #OWNERS = "{ 'Project A': 'Neil', 'Non chargeable tasks': 'Adrian' }"
         self.OWNERS = eval(os.environ['OWNERS'])
         print(self.OWNERS)
-        self.DONT_VALIDATE_THESE_ITEMS = eval(os.environ.get('VALIDATION_EXCEPTIONS', '[]'))
 
 
     def add_project_times(self, start_time, end_time):

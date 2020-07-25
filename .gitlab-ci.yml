@@ -14,10 +14,10 @@ before_script:
 build-master:
   stage: build
   script:
-    #- echo "Creating env file"
-    #- ./scripts/set_env.sh
-    #- docker build --pull -t "$CI_REGISTRY_IMAGE" .
-    #- docker push "$CI_REGISTRY_IMAGE"
+    - echo "Creating env file"
+    - ./scripts/set_env.sh
+    - docker build --pull -t "$CI_REGISTRY_IMAGE" .
+    - docker push "$CI_REGISTRY_IMAGE"
     - ls
   only:
     - master

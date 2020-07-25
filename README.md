@@ -1,13 +1,13 @@
 # Xero Automation
 
-The project generates Xero Project Time report. 
+This project automates tasks in Xero. 
 
 
-## Run manually
+## How to run this project:
 
-- Create Xero app, and get client id and secret. 
+- In https://developer.xero.com/ create a Xero app, and get its client id and secret. 
 
-- Get Xero tenant ID and refresh token. 
+- Get the Xero tenant ID and refresh token. 
 
 ```bash
 
@@ -33,7 +33,7 @@ python xero_report.py validate --client-id=4C1C814C07D34E3C8F1351A31497095D --cl
 
 ## Run with Gitlab pipeline
 
-Add the following CI/CD variable:
+Add the following CI/CD variables:
 
 - COMMAND: validate | report
 - CLIENT_ID: Xero app client id
@@ -41,8 +41,11 @@ Add the following CI/CD variable:
 - GITLAB_PRIVATE_TOKEN: Gitlab personal private token, check document on the next section.
 - REFRESH_TOKEN: Xero refresh token, result of get_refresh_token.py
 - TENANT_ID: Xero tenant id, result of get_refresh_token.py
+- OWNERS: Dictionary with Project name and contacts. Example: "{ 'Project A': 'Neil', 'Non chargeable tasks': 'Adrian' }"
+- VALIDATION_EXCEPTIONS: Python list with time entries with taks ids that need to be skipped. Example: "['task_id1', 'task_id1']"
 
-Default start time is the first day of the current month and end time is the last day.
+
+Default start time is the first day of the current month and end time is the last day of the current month.
 
 ### How to create GITLAB_PRIVATE_TOKEN? 
 

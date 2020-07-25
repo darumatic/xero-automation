@@ -388,7 +388,7 @@ if __name__ == "__main__":
         reporter.create_monthly_time_sheets(reporter)
     elif command == "validate":
         if not(reporter.validate_active_projects_time_limits(reporter)):
-            print("The Validate function didn't succeed. Please check the logs above for more information. "
+            print("The Validate function failed. Please check the logs above for more information. "
                   "If any particular task item should be skipped, please add its id to the {0}"
                   " environment variable following this format: {1}".format("VALIDATION_EXCEPTIONS",
                                                                             "['task_id1', 'task_id1']"))

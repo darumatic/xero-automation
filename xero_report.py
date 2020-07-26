@@ -397,5 +397,5 @@ if __name__ == "__main__":
         print("Invalid command")
         sys.exit(2)
 
-    print("Successful execution!")
+    print("Xero-Automation - Finished successfully!")
     sys.exit(0)

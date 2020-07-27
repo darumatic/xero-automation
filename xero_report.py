@@ -46,8 +46,8 @@ class XeroReport:
             owners = open(OWNERS_FILE).read().strip()
         else:
             owners = os.environ['OWNERS']
-        self.owners = eval(owners)
-        print(self.owners)
+        self.OWNERS = eval(owners)
+        print(self.OWNERS)
 
 
     def add_project_times(self, start_time, end_time):
@@ -195,8 +195,8 @@ class XeroReport:
         #short_project_name_with_suffix = "{} - ".format(short_project_name)
         short_project_name = short_project_name.strip()
         owner = ""
-        if short_project_name in self.owners.keys():
-            owner = self.owners[short_project_name]
+        if short_project_name in self.OWNERS.keys():
+            owner = self.OWNERS[short_project_name]
         else:
             raise Exception("Owner for proj '{}' not found".format(short_project_name))
 

@@ -10,7 +10,7 @@ import requests
 class XeroClient:
     def __init__(self, client_id, client_secret, tenant_id, refresh_token):
         headers = {
-            'authorization': "Basic " + base64.b64encode(client_id + ":" + client_secret),
+            'authorization': "Basic " + base64.b64encode((client_id + ":" + client_secret).encode(encoding="utf-8")).decode("utf-8"),
             'Content-Type': 'application/x-www-form-urlencoded'
         }
 
@@ -92,7 +92,7 @@ class XeroClient:
                     break
         else:
             response = self.get_request(url)
-        print "URL %s, response: %s" % (url, json.dumps(response))
+        print("URL %s, response: %s" % (url, json.dumps(response)))
         return response
 
     def project(self, project_id):
@@ -113,9 +113,9 @@ class XeroClient:
     def time(self, project_id, start_time, end_time):
         url = 'https://api.xero.com/projects.xro/2.0/projects/' + project_id + '/time?'
         if start_time is not None:
-            url += 'dateAfterUtc=' + urllib.quote(self.to_json_timestamp(start_time)) + '&'
+            url += 'dateAfterUtc=' + urllib.parse.quote(self.to_json_timestamp(start_time)) + '&'
         if end_time is not None:
-            url += 'dateBeforeUtc=' + urllib.quote(self.to_json_timestamp(end_time))
+            url += 'dateBeforeUtc=' + urllib.parse.quote(self.to_json_timestamp(end_time))
 
         body = self.get_items(url, one_page=False)
         return body['items'] if type(body) is dict else body[0]['items']

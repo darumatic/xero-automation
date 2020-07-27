@@ -18,6 +18,9 @@ from xero_client import XeroClient
 class XeroReport:
     def __init__(self, args):
         self.SYDNEY_TIME_OFFSET = datetime.timedelta(hours=11)
+        self.MAX_DURATION = 12.0
+        self.CURRENT_DIRECTORY = os.path.dirname(os.path.abspath(__file__))
+
         self.start_time = None
         self.end_time = None
         self.client_id = args.client_id
@@ -33,11 +36,19 @@ class XeroReport:
 
         print("CI_PROJECT_ID=%s", os.getenv('CI_PROJECT_ID', None))
         self.xero_client = XeroClient(self.client_id, self.client_secret, self.tenant_id, self.refresh_token)
+        print(str(os.environ))
+        self.DONT_VALIDATE_THESE_ITEMS = eval(os.environ.get('VALIDATION_EXCEPTIONS', '[]'))
         #TODO: change this with the Xero Contacts data
         #example of environment variable
         #OWNERS = "{ 'Project A': 'Neil', 'Non chargeable tasks': 'Adrian' }"
-        self.owners = eval(os.environ['OWNERS'])
-        print(self.owners)
+        OWNERS_FILE = os.path.join(self.CURRENT_DIRECTORY, ".owners")
+        if os.path.isfile(OWNERS_FILE):
+            owners = open(OWNERS_FILE).read().strip()
+        else:
+            owners = os.environ['OWNERS']
+        self.OWNERS = eval(owners)
+        print(self.OWNERS)
+
 
     def add_project_times(self, start_time, end_time):
         now = datetime.datetime.utcnow()
@@ -71,9 +82,15 @@ class XeroReport:
 
         for tasks in project_data['tasks']:
             for item in tasks['items']:
-                task_date = datetime.datetime.strptime(item['date'],'%d-%b-%Y')
+                if item['id'] in self.DONT_VALIDATE_THESE_ITEMS:
+                    continue
+                task_date = datetime.datetime.strptime(item['date'], '%d-%b-%Y')
+                error = None
                 if task_date < start_month or task_date > end_month:
                     error = "{0} Out Of The Month Range - {1}".format(VALIDATION_ERROR, item)
+                if item['duration'] > self.MAX_DURATION:
+                    error = "{0} Is longer than the max duration {2} - {1}".format(VALIDATION_ERROR, item, self.MAX_DURATION)
+                if error:
                     print(error)
                     errors.append(error)
 
@@ -104,9 +121,8 @@ class XeroReport:
 
             for user_time_item in user_time_list:
                 if 'duration' not in user_time_item.keys():
-                    print("Warning, user_time_item has an item without a duration attribute. Item:{0} Items:{1}".format(
+                    raise Exception("User_time_item has an item without a duration attribute. Item:{0} Items:{1}".format(
                         user_time_item, user_time_list))
-                    continue
                 task_hours = user_time_item['duration']
 
                 total_hours += task_hours
@@ -230,6 +246,7 @@ class XeroReport:
         ret = {
             'userName': user['name'],
             'taskName': task['name'],
+            'id': task['taskId'],
             'date': sydney_time.strftime('%d-%b-%Y'),
             'duration': self.round_minutes_to_hours(time['duration'])
         }
@@ -343,12 +360,13 @@ class XeroReport:
         print("*" * 80)
         print("List of Validation errors")
         pprint.pprint(errors)
+        print("*" * 80)
         if amount_of_errors == 0:
             print("There are no errors. All tasks are validated successfully!!")
+            return True
         else:
             print("There were a total of {0} errors.".format(amount_of_errors))
             return False
-        return True
 
 
 if __name__ == "__main__":
@@ -371,10 +389,14 @@ if __name__ == "__main__":
         reporter.create_monthly_time_sheets(reporter)
     elif command == "validate":
         if not(reporter.validate_active_projects_time_limits(reporter)):
-            print("The Validate function didn't succeed. Please check the logs above for more information.")
+            print("The Validate function failed. Please check the logs above for more information. "
+                  "If any particular task item should be skipped, please add its id to the {0}"
+                  " environment variable following this format: {1}".format("VALIDATION_EXCEPTIONS",
+                                                                            "['task_id1', 'task_id1']"))
             sys.exit(1)
     else:
         print("Invalid command")
-        sys.exit(1)
-    print("Successful execution!")
+        sys.exit(2)
+
+    print("Xero-Automation - Finished successfully!")
     sys.exit(0)

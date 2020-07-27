@@ -10,6 +10,7 @@ RUN dpkg -i /tmp/wkhtmltox_0.12.6-1.bionic_amd64.deb
 # Create app directory
 RUN mkdir -p /opt/xero_automation
 COPY . /opt/xero_automation
+RUN ls -la /opt/xero_automation
 
 WORKDIR /opt/xero_automation
 # Install app dependencies

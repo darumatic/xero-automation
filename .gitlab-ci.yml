@@ -14,21 +14,27 @@ before_script:
 build-master:
   stage: build
   script:
+    - echo "Creating env file"
+    - ./scripts/set_env.sh
     - docker build --pull -t "$CI_REGISTRY_IMAGE" .
     - docker push "$CI_REGISTRY_IMAGE"
+    - ls
   only:
     - master
 
-build:
+release:
   stage: build
   script:
+    - echo "Creating env file"
+    - ./scripts/set_env.sh
     - docker build --pull -t "$CI_REGISTRY_IMAGE" .
     - docker push "$CI_REGISTRY_IMAGE"
     - export TAG_IMAGE=$CI_REGISTRY_IMAGE:$CI_COMMIT_REF_SLUG-`date +%Y%m%d-%H%M`
     - docker tag "$CI_REGISTRY_IMAGE" $TAG_IMAGE
     - docker push $TAG_IMAGE
-  except:
-    - master
+  only:
+    - release
+
 
 run:
   stage: run

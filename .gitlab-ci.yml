@@ -26,12 +26,16 @@ build-master:
   when: manual
 
 run-validate:
+  image: $CI_REGISTRY_IMAGE:latest
   stage: run-validate
   script:
-    - docker run -e GITLAB_PRIVATE_TOKEN=$GITLAB_PRIVATE_TOKEN -e CI_PROJECT_ID=$CI_PROJECT_ID --rm $CI_REGISTRY_IMAGE:latest python3 /app/xero_report.py validate --client-id=$CLIENT_ID --client-secret=$CLIENT_SECRET --refresh-token=$REFRESH_TOKEN --tenant-id=$TENANT_ID
+    - export GITLAB_PRIVATE_TOKEN=$GITLAB_PRIVATE_TOKEN && export CI_PROJECT_ID=$CI_PROJECT_ID
+    - python3 /app/xero_report.py validate --client-id=$CLIENT_ID --client-secret=$CLIENT_SECRET --refresh-token=$REFRESH_TOKEN --tenant-id=$TENANT_ID
 
 run-report:
+  image: $CI_REGISTRY_IMAGE:latest
   stage: run-report
   script:
-    - docker run -e GITLAB_PRIVATE_TOKEN=$GITLAB_PRIVATE_TOKEN -e CI_PROJECT_ID=$CI_PROJECT_ID --rm $CI_REGISTRY_IMAGE:latest python3 /app/xero_report.py report --client-id=$CLIENT_ID --client-secret=$CLIENT_SECRET --refresh-token=$REFRESH_TOKEN --tenant-id=$TENANT_ID
+    - export GITLAB_PRIVATE_TOKEN=$GITLAB_PRIVATE_TOKEN && export CI_PROJECT_ID=$CI_PROJECT_ID
+    - python3 /app/xero_report.py report --client-id=$CLIENT_ID --client-secret=$CLIENT_SECRET --refresh-token=$REFRESH_TOKEN --tenant-id=$TENANT_ID
   when: manual

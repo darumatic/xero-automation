@@ -17,13 +17,27 @@ build-master:
     - ./scripts/set_env.sh
     - docker build --pull -t "$CI_REGISTRY_IMAGE" .
     - docker push "$CI_REGISTRY_IMAGE"
+  only:
+    - release
+    - faster-pipeline
+
+build-release:
+  stage: build
+  image: docker:latest
+  services:
+    - docker:dind
+  before_script:
+    - docker login -u "$CI_REGISTRY_USER" -p "$CI_REGISTRY_PASSWORD" $CI_REGISTRY
+  script:
+    - echo "Creating env file"
+    - ./scripts/set_env.sh
+    - docker build --pull -t "$CI_REGISTRY_IMAGE" .
+    - docker push "$CI_REGISTRY_IMAGE"
     - export TAG_IMAGE=$CI_REGISTRY_IMAGE:$CI_COMMIT_REF_SLUG-`date +%Y%m%d-%H%M`
     - docker tag "$CI_REGISTRY_IMAGE" $TAG_IMAGE
     - docker push $TAG_IMAGE
   only:
-    - master
-    - faster-pipeline
-  when: manual
+    - release
 
 run-validate:
   image: $CI_REGISTRY_IMAGE:latest

@@ -36,7 +36,6 @@ class XeroReport:
 
         print("CI_PROJECT_ID=%s", os.getenv('CI_PROJECT_ID', None))
         self.xero_client = XeroClient(self.client_id, self.client_secret, self.tenant_id, self.refresh_token)
-        print(str(os.environ))
         self.DONT_VALIDATE_THESE_ITEMS = eval(os.environ.get('VALIDATION_EXCEPTIONS', '[]'))
         #TODO: change this with the Xero Contacts data
         #example of environment variable
@@ -90,6 +89,8 @@ class XeroReport:
                     error = "{0} Out Of The Month Range - {1}".format(VALIDATION_ERROR, item)
                 if item['duration'] > self.MAX_DURATION:
                     error = "{0} Is longer than the max duration {2} - {1}".format(VALIDATION_ERROR, item, self.MAX_DURATION)
+                if error:
+                    error = error.encode('utf-8').strip()
                 if error:
                     print(error)
                     errors.append(error)
@@ -389,8 +390,8 @@ if __name__ == "__main__":
         reporter.create_monthly_time_sheets(reporter)
     elif command == "validate":
         if not(reporter.validate_active_projects_time_limits(reporter)):
-            print("The Validate function failed. Please check the logs above for more information. "
-                  "If any particular task item should be skipped, please add its id to the {0}"
+            print("The Validate function failed. Please check the logs above for more information. \n"
+                  "If any particular task item should be skipped, please add its id to the {0} \n"
                   " environment variable following this format: {1}".format("VALIDATION_EXCEPTIONS",
                                                                             "['task_id1', 'task_id1']"))
             sys.exit(1)

@@ -32,8 +32,8 @@ release:
     - export TAG_IMAGE=$CI_REGISTRY_IMAGE:$CI_COMMIT_REF_SLUG-`date +%Y%m%d-%H%M`
     - docker tag "$CI_REGISTRY_IMAGE" $TAG_IMAGE
     - docker push $TAG_IMAGE
-#  only:
-#    - release
+  only:
+    - release
 
 
 run:

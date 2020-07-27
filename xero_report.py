@@ -46,8 +46,8 @@ class XeroReport:
             owners = open(OWNERS_FILE).read().strip()
         else:
             owners = os.environ['OWNERS']
-        self.OWNERS = eval(owners)
-        print(self.OWNERS)
+        self.owners = eval(owners)
+        print(self.owners)
 
 
     def add_project_times(self, start_time, end_time):

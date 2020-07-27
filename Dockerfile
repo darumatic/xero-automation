@@ -1,17 +1,20 @@
 # Dockerfile
-FROM ubuntu:18.04
-ENV DEBIAN_FRONTEND noninteractive
-RUN apt update && apt-get install -y build-essential libssl-dev libffi-dev wkhtmltopdf xfonts-75dpi python3.7 python-pip wget git python3-setuptools
+FROM python:3.7-alpine AS builder
+RUN mkdir /install
+WORKDIR /install
+COPY requirements.txt /requirements.txt
+RUN apk add --no-cache --update \
+    libffi-dev \
+    openssl-dev \
+    readline-dev \
+    build-base
 
-# Install wkhtmltopdf to support headless
-RUN wget https://github.com/wkhtmltopdf/packaging/releases/download/0.12.6-1/wkhtmltox_0.12.6-1.bionic_amd64.deb -P /tmp
-RUN dpkg -i /tmp/wkhtmltox_0.12.6-1.bionic_amd64.deb
+RUN pip3 install --install-option="--prefix=/install" -r /requirements.txt
 
-# Create app directory
-RUN mkdir -p /opt/xero_automation
-COPY . /opt/xero_automation
-RUN ls -la /opt/xero_automation
-
-WORKDIR /opt/xero_automation
-# Install app dependencies
-RUN python3 setup.py install
+FROM python:3.7-alpine
+COPY --from=builder /install /usr/local
+COPY ["xero_client.py", "xero_report.py", "report.html", ".owners", "/app/"]
+WORKDIR /app
+RUN apk add --no-cache \
+    libgcc libstdc++ libx11 glib libxrender libxext libintl \
+    ttf-dejavu ttf-droid ttf-freefont ttf-liberation ttf-ubuntu-font-family wkhtmltopdf

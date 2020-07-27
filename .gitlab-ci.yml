@@ -14,25 +14,29 @@ before_script:
 build-master:
   stage: build
   script:
+    - echo "Creating env file"
+    - ./scripts/set_env.sh
     - docker build --pull -t "$CI_REGISTRY_IMAGE" .
     - docker push "$CI_REGISTRY_IMAGE"
+    - ls
   only:
     - master
 
-build:
+release:
   stage: build
   script:
+    - echo "Creating env file"
+    - ./scripts/set_env.sh
     - docker build --pull -t "$CI_REGISTRY_IMAGE" .
     - docker push "$CI_REGISTRY_IMAGE"
     - export TAG_IMAGE=$CI_REGISTRY_IMAGE:$CI_COMMIT_REF_SLUG-`date +%Y%m%d-%H%M`
     - docker tag "$CI_REGISTRY_IMAGE" $TAG_IMAGE
     - docker push $TAG_IMAGE
-  except:
-    - master
+#  only:
+#    - release
+
 
 run:
   stage: run
   script:
-    - docker run -e GITLAB_PRIVATE_TOKEN=$GITLAB_PRIVATE_TOKEN -e CI_PROJECT_ID=$CI_PROJECT_ID --rm $CI_REGISTRY_IMAGE:latest /usr/bin/python /opt/xero_automation/xero_report.py $COMMAND --client-id=$CLIENT_ID --client-secret=$CLIENT_SECRET --refresh-token=$REFRESH_TOKEN --tenant-id=$TENANT_ID
-  only:
-    - master
+    - docker run -e GITLAB_PRIVATE_TOKEN=$GITLAB_PRIVATE_TOKEN -e CI_PROJECT_ID=$CI_PROJECT_ID --rm $CI_REGISTRY_IMAGE:latest python3 /opt/xero_automation/xero_report.py validate --client-id=$CLIENT_ID --client-secret=$CLIENT_SECRET --refresh-token=$REFRESH_TOKEN --tenant-id=$TENANT_ID

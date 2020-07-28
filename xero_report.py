@@ -37,7 +37,6 @@ class XeroReport:
 
         print("CI_PROJECT_ID=%s", os.getenv('CI_PROJECT_ID', None))
         self.xero_client = XeroClient(self.client_id, self.client_secret, self.tenant_id, self.refresh_token)
-        print(str(os.environ))
         self.DONT_VALIDATE_THESE_ITEMS = eval(os.environ.get('VALIDATION_EXCEPTIONS', '[]'))
         #TODO: change this with the Xero Contacts data
         #example of environment variable
@@ -95,6 +94,8 @@ class XeroReport:
                     error = "{0} Out Of The Month Range - {1}".format(VALIDATION_ERROR, item)
                 if item['duration'] > self.MAX_DURATION:
                     error = "{0} Is longer than the max duration {2} - {1}".format(VALIDATION_ERROR, item, self.MAX_DURATION)
+                if error:
+                    error = error.encode('utf-8').strip()
                 if error:
                     print(error)
                     errors.append(error)
@@ -405,6 +406,27 @@ class XeroReport:
         user_list_file = open(project_folder+"/users.json", "w+")
         json.dump(user_list, user_list_file)
         user_list_file.close()
+        
+    def close_previous_month_projects(self):
+        counter = 0
+        for items in self.get_all_projects():
+            for item in items['items']:
+                if self.filter not in item['name'] and item['status'] == "INPROGRESS":
+                    data = {"status": "CLOSED"}
+                    project_id = item["projectId"]
+                    response = self.xero_client.patch_projects(
+                        'https://api.xero.com/projects.xro/2.0/Projects/' + project_id, data)
+                    if response == 204:
+                        print("Closing project: " + item["name"] + "  SUCCEED!")
+                        counter += 1
+                    else:
+                        print("Closing project: " + item["name"] + " FAILED!")
+            if counter == 0:
+                print("No projects have been closed")
+            else:
+                print("{0} projects have been closed".format(counter))
+
+
 
 if __name__ == "__main__":
     current_dir = os.path.dirname(os.path.realpath(__file__))
@@ -424,10 +446,12 @@ if __name__ == "__main__":
 
     if command == "report":
         reporter.create_monthly_time_sheets(reporter)
+    elif command == "close":
+        reporter.close_previous_month_projects()
     elif command == "validate":
         if not(reporter.validate_active_projects_time_limits(reporter)):
-            print("The Validate function failed. Please check the logs above for more information. "
-                  "If any particular task item should be skipped, please add its id to the {0}"
+            print("The Validate function failed. Please check the logs above for more information. \n"
+                  "If any particular task item should be skipped, please add its id to the {0} \n"
                   " environment variable following this format: {1}".format("VALIDATION_EXCEPTIONS",
                                                                             "['task_id1', 'task_id1']"))
             sys.exit(1)

@@ -374,12 +374,15 @@ class XeroReport:
         for items in self.get_all_projects():
             for item in items['items']:
                 if self.filter not in item['name'] and item['status'] == "INPROGRESS":
-                    counter += 1
                     data = {"status": "CLOSED"}
-                    print("Closing project: ", item["name"])
                     project_id = item["projectId"]
-                    self.xero_client.patch_projects('https://api.xero.com/projects.xro/2.0/Projects/' + project_id,
-                                                    data)
+                    response = self.xero_client.patch_projects(
+                        'https://api.xero.com/projects.xro/2.0/Projects/' + project_id, data)
+                    if response == 204:
+                        print("Closing project: " + item["name"] + "  SUCCEED!")
+                        counter += 1
+                    else:
+                        print("Closing project: " + item["name"] + " FAILED!")
             if counter == 0:
                 print("No projects have been closed")
             else:

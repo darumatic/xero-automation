@@ -369,6 +369,23 @@ class XeroReport:
             print("There were a total of {0} errors.".format(amount_of_errors))
             return False
 
+    def close_previous_month_projects(self):
+        counter = 0
+        for items in self.get_all_projects():
+            for item in items['items']:
+                if self.filter not in item['name'] and item['status'] == "INPROGRESS":
+                    counter += 1
+                    data = {"status": "CLOSED"}
+                    print("Closing project: ", item["name"])
+                    project_id = item["projectId"]
+                    self.xero_client.patch_projects('https://api.xero.com/projects.xro/2.0/Projects/' + project_id,
+                                                    data)
+            if counter == 0:
+                print("No projects have been closed")
+            else:
+                print("{0} projects have been closed".format(counter))
+
+
 
 if __name__ == "__main__":
     current_dir = os.path.dirname(os.path.realpath(__file__))
@@ -388,6 +405,8 @@ if __name__ == "__main__":
 
     if command == "report":
         reporter.create_monthly_time_sheets(reporter)
+    elif command == "close":
+        reporter.close_previous_month_projects()
     elif command == "validate":
         if not(reporter.validate_active_projects_time_limits(reporter)):
             print("The Validate function failed. Please check the logs above for more information. \n"

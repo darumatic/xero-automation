@@ -96,6 +96,11 @@ class XeroClient:
         print("URL %s, response: %s" % (url, json.dumps(response)))
         return response
 
+    def patch_projects(self, url, data):
+        r = requests.patch(url, headers=self.headers, data=data)
+        if r.status_code == 204:
+            print("Closing success!")
+
     def project(self, project_id):
         url = 'https://api.xero.com/projects.xro/2.0/projects/' + project_id
         return self.get_items(url)

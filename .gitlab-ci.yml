@@ -2,6 +2,7 @@ stages:
   - build
   - run-validate
   - run-report
+  - run-close
 
 build-master:
   stage: build
@@ -17,6 +18,7 @@ build-master:
     - docker push "$CI_REGISTRY_IMAGE"
   only:
     - master
+    - close-projects  # just for testing, REMOVE this line
 
 build-release:
   stage: build
@@ -49,4 +51,12 @@ run-report:
   script:
     - export GITLAB_PRIVATE_TOKEN=$GITLAB_PRIVATE_TOKEN && export CI_PROJECT_ID=$CI_PROJECT_ID
     - python3 /app/xero_report.py report --client-id=$CLIENT_ID --client-secret=$CLIENT_SECRET --refresh-token=$REFRESH_TOKEN --tenant-id=$TENANT_ID
+  when: manual
+
+run-close:
+  image: $CI_REGISTRY_IMAGE:latest
+  stage: run-close
+  script:
+    - export GITLAB_PRIVATE_TOKEN=$GITLAB_PRIVATE_TOKEN && export CI_PROJECT_ID=$CI_PROJECT_ID
+    - python3 /app/xero_report.py close --client-id=$CLIENT_ID --client-secret=$CLIENT_SECRET --refresh-token=$REFRESH_TOKEN --tenant-id=$TENANT_ID
   when: manual

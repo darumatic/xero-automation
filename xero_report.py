@@ -314,8 +314,9 @@ class XeroReport:
             os.makedirs(self.output)
 
         # Create active projects json file
-        os.mkdir("./out/"+self.time_stamp)
-        f = open("./out/"+self.time_stamp+"/all_projects.json", "w+")
+        os.mkdir(self.output+"/backup/")
+        os.mkdir(self.output+"/backup/"+self.time_stamp)
+        f = open(self.output+"/backup/"+self.time_stamp+"/all_projects.json", "w+")
         json.dump(self.get_active_projects(), f)
         f.close()
 
@@ -384,7 +385,7 @@ class XeroReport:
 
     def backup_data(self, project_id, project_name):
         # Create current project's folder
-        project_folder = "./out/" + self.time_stamp+"/"+project_name
+        project_folder = self.output + "/backup/" + self.time_stamp+"/"+project_name
         os.mkdir(project_folder)
         # Create time entry file
         xero_client = self.xero_client

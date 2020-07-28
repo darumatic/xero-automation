@@ -15,6 +15,7 @@ publickey.cer
 /venv/
 /build/
 /dist/
+/out/
 *.iml
 *.egg-info
 .owners

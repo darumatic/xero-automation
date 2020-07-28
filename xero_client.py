@@ -35,8 +35,9 @@ class XeroClient:
     def update_refresh_token(self, refresh_token):
         gitlab_token = os.getenv('GITLAB_PRIVATE_TOKEN', None)
         if gitlab_token:
-
             project_id = os.getenv('CI_PROJECT_ID', None)
+            if not project_id:
+                raise RuntimeError("CI_PROJECT_ID is not properly defined")
             headers = {
                 'PRIVATE-TOKEN': gitlab_token,
                 'Content-Type': 'application/x-www-form-urlencoded'

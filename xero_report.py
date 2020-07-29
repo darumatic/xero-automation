@@ -51,8 +51,9 @@ class XeroReport:
 
         # Current timestamp
         now = datetime.datetime.now()
+        current_date = str(now)[0:10]
         current_time = str(now)[11:13]+":"+str(now)[14:16]+":"+str(now)[17:22]
-        self.time_stamp = self.filter+"-"+current_time
+        self.time_stamp = current_date + "-" + current_time
 
     def add_project_times(self, start_time, end_time):
         now = datetime.datetime.utcnow()

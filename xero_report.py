@@ -49,11 +49,6 @@ class XeroReport:
         self.OWNERS = eval(owners)
         print(self.OWNERS)
 
-        # Current timestamp
-        now = datetime.datetime.now()
-        current_date = str(now)[0:10]
-        current_time = str(now)[11:13]+":"+str(now)[14:16]+":"+str(now)[17:22]
-        self.time_stamp = current_date + "-" + current_time
 
     def add_project_times(self, start_time, end_time):
         now = datetime.datetime.utcnow()
@@ -316,8 +311,7 @@ class XeroReport:
 
         # Create active projects json file
         os.mkdir(self.output+"/backup/")
-        os.mkdir(self.output+"/backup/"+self.time_stamp)
-        f = open(self.output+"/backup/"+self.time_stamp+"/all_projects.json", "w+")
+        f = open(self.output+"/backup/all_projects.json", "w+")
         json.dump(self.get_active_projects(), f)
         f.close()
 
@@ -386,7 +380,7 @@ class XeroReport:
 
     def backup_data(self, project_id, project_name):
         # Create current project's folder
-        project_folder = self.output + "/backup/" + self.time_stamp+"/"+project_name
+        project_folder = self.output + "/backup/" + project_name
         os.mkdir(project_folder)
         # Create time entry file
         xero_client = self.xero_client

@@ -72,7 +72,7 @@ run-report:
     - mkdir backup-data
     - fi
     # Create folder for this job's report
-    - TIME=$(date | awk '{print $3 $2 $6}')"-"$(date | awk '{print $4}')
+    - TIME=$(date +%Y%m%d)"-"$(date +%H%M%S)
     - mkdir backup-data/$TIME
 
     # Generate report and json data

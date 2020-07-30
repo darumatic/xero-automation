@@ -114,6 +114,10 @@ class XeroClient:
         url = 'https://api.xero.com/projects.xro/2.0/projects/' + project_id + '/tasks/' + task_id
         return self.get_items(url, one_page=True)
 
+    def get_tasks(self, project_id):
+        url = 'https://api.xero.com/projects.xro/2.0/projects/' + project_id + '/tasks/'
+        return self.get_items(url, one_page=False)
+
     def time(self, project_id, start_time, end_time):
         url = 'https://api.xero.com/projects.xro/2.0/projects/' + project_id + '/time?'
         if start_time is not None:

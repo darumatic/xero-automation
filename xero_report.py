@@ -8,6 +8,7 @@ import pprint
 import random
 import shutil
 import sys
+import json
 
 import pdfkit
 import pystache
@@ -307,6 +308,13 @@ class XeroReport:
             os.makedirs(self.output)
         else:
             os.makedirs(self.output)
+
+        # Create active projects json file
+        os.mkdir(self.output+"/backup/")
+        f = open(self.output+"/backup/all_projects.json", "w+")
+        json.dump(self.get_active_projects(), f)
+        f.close()
+
         for items in self.get_all_projects():
             for item in items['items']:
                 if self.filter not in item['name']:
@@ -316,6 +324,7 @@ class XeroReport:
                 print("Name: {0}, ProjectID: {1}, Status: {2}, ContactId: {3}".format(item["name"], item["projectId"],
                                                                                       item["status"],
                                                                                       item["contactId"]))
+                reporter.backup_data(item["projectId"], item["name"])
                 reporter.generate_report(self.output, item["projectId"])
 
 
@@ -369,6 +378,31 @@ class XeroReport:
             print("There were a total of {0} errors.".format(amount_of_errors))
             return False
 
+    def backup_data(self, project_id, project_name):
+        # Create current project's folder
+        project_folder = self.output + "/backup/" + project_name
+        os.mkdir(project_folder)
+        # Create time entry file
+        xero_client = self.xero_client
+        time_list = xero_client.time(project_id, self.start_time, self.end_time)
+        time_list_file = open(project_folder+"/time_entries.json", "w+")
+        json.dump(time_list, time_list_file)
+        time_list_file.close()
+        # Create tasks file
+        task_list = xero_client.get_tasks(project_id)
+        task_list_file = open(project_folder+"/tasks.json", "w+")
+        json.dump(task_list, task_list_file)
+        task_list_file.close()
+        # Create users file
+        user_list = []
+        for time_entry in time_list:
+            user_id = time_entry["userId"]
+            user = xero_client.user(user_id)
+            user_list.append(user)
+        user_list_file = open(project_folder+"/users.json", "w+")
+        json.dump(user_list, user_list_file)
+        user_list_file.close()
+        
     def close_previous_month_projects(self):
         counter = 0
         for items in self.get_all_projects():

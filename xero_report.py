@@ -48,7 +48,14 @@ class XeroReport:
             owners = os.environ['OWNERS']
         self.OWNERS = eval(owners)
         print(self.OWNERS)
-
+        # EMPLOYEES
+        EMPLOYEES_FILE = os.path.join(self.CURRENT_DIRECTORY, "variables/employees.json")
+        employees = open(EMPLOYEES_FILE).read().strip()
+        self.EMPLOYEES = eval(employees)
+        # NSW Public Holidays
+        NSW_HOLIDAYS_FILE = os.path.join(self.CURRENT_DIRECTORY, "variables/NSW_holidays.json")
+        holidays = open(NSW_HOLIDAYS_FILE).read().strip()
+        self.NSW_HOLIDAYS = eval(holidays)
 
     def add_project_times(self, start_time, end_time):
         now = datetime.datetime.utcnow()
@@ -367,6 +374,48 @@ class XeroReport:
                 errors[item["name"]].append(project_errors)
                 amount_of_errors = len(project_errors) + amount_of_errors
 
+        # TODO New monthly validation function
+        # Get previous month
+        year = self.filter[0:4]
+        month = self.filter[4:6]
+        if month == "01":
+            year = str(int(year)-1)
+            month = "12"
+        else:
+            if int(month) < 10:
+                month = "0" + str(int(month) - 1)
+            else:
+                month = str(int(month) - 1)
+
+        # Working days for previous month
+        last_month_workdays = self.generate_work_days(year, month)
+
+        # Get employees' worked days
+        for employee in self.EMPLOYEES:
+            errors[employee["userName"]] = []
+            last_month_employee_workdays = []
+            for workdays in employee["working_days"]:
+                if (year + "-" + month) in workdays["date"]:
+                    last_month_employee_workdays.append(workdays)
+            # Validate
+            # @days are required work days
+            # @workdays are the days when employees attend
+            # @workdays are dictionaries {"date":"" , "duration":""}
+            for days in last_month_workdays:
+                attend = False
+                for workdays in last_month_employee_workdays:
+                    if days == workdays["date"]:
+                        attend = True
+                        if workdays["duration"] < 8:
+                            error = "Working hour error: {0} attend less than 8 hours on {1}".format(employee["userName"], days)
+                            errors[employee["userName"]].append(error)
+
+                if not attend:
+                    error = "Working hour error: {0} didn't attend on {1}".format(employee["userName"], days)
+                    errors[employee["userName"]].append(error)
+                # Update errors amount
+            amount_of_errors = len(errors[employee["userName"]]) + amount_of_errors
+
         print("*" * 80)
         print("List of Validation errors")
         pprint.pprint(errors)
@@ -422,6 +471,27 @@ class XeroReport:
             else:
                 print("{0} projects have been closed".format(counter))
 
+    def generate_work_days(self, year, month):
+        workdays = []
+        for week in calendar.monthcalendar(int(year), int(month)):
+            del week[5:7]
+            while 0 in week:
+                week.remove(0)
+            for day in week:
+                if day < 10:
+                    date = year + "-" + month + "-" + "0" + str(day)
+                else:
+                    date = year + "-" + month + "-" + str(day)
+                workdays.append(date)
+
+        # Remove holidays
+        for year in self.NSW_HOLIDAYS:
+            if year["year"] == "2020":
+                for holidays in year["holidays"]:
+                    if "2020-04" in holidays and holidays in workdays:
+                        workdays.remove(holidays)
+
+        return workdays
 
 
 if __name__ == "__main__":

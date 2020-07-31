@@ -9,7 +9,7 @@ RUN apk add --no-cache --update \
     readline-dev \
     build-base
 
-RUN pip3 install --install-option="--prefix=/install" -r /requirements.txt
+RUN pip3 install --prefix=/install -r /requirements.txt
 
 FROM python:3.7-alpine
 COPY --from=builder /install /usr/local

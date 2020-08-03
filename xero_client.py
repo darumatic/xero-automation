@@ -98,8 +98,7 @@ class XeroClient:
 
     def patch_projects(self, url, data):
         r = requests.patch(url, headers=self.headers, data=data)
-        if r.status_code == 204:
-            print("Closing success!")
+        return r.status_code
 
     def project(self, project_id):
         url = 'https://api.xero.com/projects.xro/2.0/projects/' + project_id
@@ -115,6 +114,10 @@ class XeroClient:
     def task(self, project_id, task_id):
         url = 'https://api.xero.com/projects.xro/2.0/projects/' + project_id + '/tasks/' + task_id
         return self.get_items(url, one_page=True)
+
+    def get_tasks(self, project_id):
+        url = 'https://api.xero.com/projects.xro/2.0/projects/' + project_id + '/tasks/'
+        return self.get_items(url, one_page=False)
 
     def time(self, project_id, start_time, end_time):
         url = 'https://api.xero.com/projects.xro/2.0/projects/' + project_id + '/time?'

@@ -16,9 +16,9 @@ build-master:
     - ./scripts/set_env.sh
     - docker build --pull -t "$CI_REGISTRY_IMAGE" .
     - docker push "$CI_REGISTRY_IMAGE"
-  only:
-    - master
-    - close-projects  # just for testing, REMOVE this line
+#  only:
+#    - master
+#    - close-projects  # just for testing, REMOVE this line
 
 build-release:
   stage: build

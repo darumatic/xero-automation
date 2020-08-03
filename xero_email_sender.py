@@ -40,7 +40,8 @@ class XeroEmailSender:
         counter = 1
         error_str = ""
         for error in errors:
-            error_str += str(error) + ":\n"
+            if len(errors[error]) > 0:
+                error_str += str(error) + ":\n"
             for item in errors[error]:
                 if isinstance(item, str):
                     error_str += str(counter) + ". " + item + "\n"

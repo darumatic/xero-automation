@@ -15,6 +15,7 @@ import pystache
 
 from openpyxl import Workbook
 from xero_client import XeroClient
+from xero_email_sender import XeroEmailSender
 
 class XeroReport:
     def __init__(self, args):
@@ -371,7 +372,7 @@ class XeroReport:
                                                                                       item["contactId"]))
                 errors[item["name"]] = []
                 project_errors = reporter.validate(self.output, item["projectId"], month_start, month_end)
-                errors[item["name"]].append(project_errors)
+                errors[item["name"]] = project_errors
                 amount_of_errors = len(project_errors) + amount_of_errors
 
         # TODO New monthly validation function
@@ -421,10 +422,15 @@ class XeroReport:
         pprint.pprint(errors)
         print("*" * 80)
         if amount_of_errors == 0:
-            print("There are no errors. All tasks are validated successfully!!")
+            result = "There are no errors in {0}. All tasks are validated successfully!!".format(self.filter)
+            print(result)
+            # Send Email
+            XeroEmailSender.send_via_smpt(result)
             return True
         else:
-            print("There were a total of {0} errors.".format(amount_of_errors))
+            result = "There were a total of {0} errors in {1}.".format(amount_of_errors, self.filter)
+            print(result)
+            XeroEmailSender.send_via_smpt(result, errors)
             return False
 
     def backup_data(self, project_id, project_name):

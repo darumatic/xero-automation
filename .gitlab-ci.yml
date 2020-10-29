@@ -16,9 +16,9 @@ build-master:
     - ./scripts/set_env.sh
     - docker build --pull -t "$CI_REGISTRY_IMAGE" .
     - docker push "$CI_REGISTRY_IMAGE"
-  only:
-    - master
-    - 14-external-repo  # just for testing, REMOVE this line
+#  only:
+#    - master
+#    - close-projects  # just for testing, REMOVE this line
 
 build-release:
   stage: build
@@ -41,7 +41,25 @@ build-release:
 run-validate:
   image: $CI_REGISTRY_IMAGE:latest
   stage: run-validate
+  before_script:
+    - apk add --no-cache --update openssh-client git unzip sshpass rsync
+    - eval $(ssh-agent -s)
+    - echo "$CONFIG_REPO_SSHKEY" | tr -d '\r' | ssh-add - > /dev/null
+
+    - mkdir -p ~/.ssh
+    - chmod 700 ~/.ssh
+
+    - ssh-keyscan gitlab.com >> ~/.ssh/known_hosts
+    - chmod 644 ~/.ssh/known_hosts
+
+    - git config --global user.email $XERO_REPORT_REPO_USERMAIL
+    - git config --global user.name $XERO_REPORT_REPO_USERNAME
   script:
+    #  Pull configuration repo
+    - echo "Pulling configration repo"
+    - git clone $CONFIG_REPO
+    - cp -Rf  $CONFIG_REPO_NAME/variables /app
+    - source /app/variables/email_sender.env
     - export GITLAB_PRIVATE_TOKEN=$GITLAB_PRIVATE_TOKEN && export CI_PROJECT_ID=$CI_PROJECT_ID
     - python3 /app/xero_report.py validate --client-id=$CLIENT_ID --client-secret=$CLIENT_SECRET --refresh-token=$REFRESH_TOKEN --tenant-id=$TENANT_ID
 

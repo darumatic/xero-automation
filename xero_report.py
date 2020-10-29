@@ -508,6 +508,28 @@ class XeroReport:
         if not (1 <= int(timestamp[4:]) <= 12):
             return "{0} Invalid month. Month should from [01 - 12].".format(VALIDATION_ERROR)
 
+    def generate_work_days(self, year, month):
+        workdays = []
+        for week in calendar.monthcalendar(int(year), int(month)):
+            del week[5:7]
+            while 0 in week:
+                week.remove(0)
+            for day in week:
+                if day < 10:
+                    date = year + "-" + month + "-" + "0" + str(day)
+                else:
+                    date = year + "-" + month + "-" + str(day)
+                workdays.append(date)
+
+        # Remove holidays
+        for year in self.NSW_HOLIDAYS:
+            if year["year"] == "2020":
+                for holidays in year["holidays"]:
+                    if "2020-04" in holidays and holidays in workdays:
+                        workdays.remove(holidays)
+
+        return workdays
+
 
 if __name__ == "__main__":
     current_dir = os.path.dirname(os.path.realpath(__file__))

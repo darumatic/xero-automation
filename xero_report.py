@@ -8,12 +8,14 @@ import pprint
 import random
 import shutil
 import sys
+import json
 
 import pdfkit
 import pystache
 
 from openpyxl import Workbook
 from xero_client import XeroClient
+from xero_email_sender import XeroEmailSender
 
 class XeroReport:
     def __init__(self, args):
@@ -47,7 +49,14 @@ class XeroReport:
             owners = os.environ['OWNERS']
         self.OWNERS = eval(owners)
         print(self.OWNERS)
-
+        # EMPLOYEES
+        EMPLOYEES_FILE = os.path.join(self.CURRENT_DIRECTORY, "variables/employees.json")
+        employees = open(EMPLOYEES_FILE).read().strip()
+        self.EMPLOYEES = eval(employees)
+        # NSW Public Holidays
+        NSW_HOLIDAYS_FILE = os.path.join(self.CURRENT_DIRECTORY, "variables/NSW_holidays.json")
+        holidays = open(NSW_HOLIDAYS_FILE).read().strip()
+        self.NSW_HOLIDAYS = eval(holidays)
 
     def add_project_times(self, start_time, end_time):
         now = datetime.datetime.utcnow()
@@ -307,6 +316,13 @@ class XeroReport:
             os.makedirs(self.output)
         else:
             os.makedirs(self.output)
+
+        # Create active projects json file
+        os.mkdir(self.output+"/backup/")
+        f = open(self.output+"/backup/all_projects.json", "w+")
+        json.dump(self.get_active_projects(), f)
+        f.close()
+
         for items in self.get_all_projects():
             for item in items['items']:
                 if self.filter not in item['name']:
@@ -316,6 +332,7 @@ class XeroReport:
                 print("Name: {0}, ProjectID: {1}, Status: {2}, ContactId: {3}".format(item["name"], item["projectId"],
                                                                                       item["status"],
                                                                                       item["contactId"]))
+                reporter.backup_data(item["projectId"], item["name"])
                 reporter.generate_report(self.output, item["projectId"])
 
 
@@ -361,20 +378,92 @@ class XeroReport:
                                                                                       item["status"],
                                                                                       item["contactId"]))
                 project_errors = reporter.validate(self.output, item["projectId"], month_start, month_end)
-                errors[item["name"]].append(project_errors)
+                errors[item["name"]] = project_errors
                 amount_of_errors = len(project_errors) + amount_of_errors
+
+        # TODO New monthly validation function
+        # Get previous month
+        year = self.filter[0:4]
+        month = self.filter[4:6]
+        if month == "01":
+            year = str(int(year)-1)
+            month = "12"
+        else:
+            if int(month) < 10:
+                month = "0" + str(int(month) - 1)
+            else:
+                month = str(int(month) - 1)
+
+        # Working days for previous month
+        last_month_workdays = self.generate_work_days(year, month)
+
+        # Get employees' worked days
+        for employee in self.EMPLOYEES:
+            errors[employee["userName"]] = []
+            last_month_employee_workdays = []
+            for workdays in employee["working_days"]:
+                if (year + "-" + month) in workdays["date"]:
+                    last_month_employee_workdays.append(workdays)
+            # Validate
+            # @days are required work days
+            # @workdays are the days when employees attend
+            # @workdays are dictionaries {"date":"" , "duration":""}
+            for days in last_month_workdays:
+                attend = False
+                for workdays in last_month_employee_workdays:
+                    if days == workdays["date"]:
+                        attend = True
+                        if workdays["duration"] < 8:
+                            error = "Working hour error: {0} attend less than 8 hours on {1}".format(employee["userName"], days)
+                            errors[employee["userName"]].append(error)
+
+                if not attend:
+                    error = "Working hour error: {0} didn't attend on {1}".format(employee["userName"], days)
+                    errors[employee["userName"]].append(error)
+                # Update errors amount
+            amount_of_errors = len(errors[employee["userName"]]) + amount_of_errors
 
         print("*" * 80)
         print("List of Validation errors")
         pprint.pprint(errors)
         print("*" * 80)
         if amount_of_errors == 0:
-            print("There are no errors. All tasks are validated successfully!!")
+            result = "There are no errors in {0}. All tasks are validated successfully!!".format(self.filter)
+            print(result)
+            # Send Email
+            XeroEmailSender.send_via_smpt(result)
             return True
         else:
-            print("There were a total of {0} errors.".format(amount_of_errors))
+            result = "There were a total of {0} errors in {1}.".format(amount_of_errors, self.filter)
+            print(result)
+            XeroEmailSender.send_via_smpt(result, errors)
             return False
 
+    def backup_data(self, project_id, project_name):
+        # Create current project's folder
+        project_folder = self.output + "/backup/" + project_name
+        os.mkdir(project_folder)
+        # Create time entry file
+        xero_client = self.xero_client
+        time_list = xero_client.time(project_id, self.start_time, self.end_time)
+        time_list_file = open(project_folder+"/time_entries.json", "w+")
+        json.dump(time_list, time_list_file)
+        time_list_file.close()
+        # Create tasks file
+        task_list = xero_client.get_tasks(project_id)
+        task_list_file = open(project_folder+"/tasks.json", "w+")
+        json.dump(task_list, task_list_file)
+        task_list_file.close()
+        # Create users file
+        user_list = []
+        for time_entry in time_list:
+            user_id = time_entry["userId"]
+            user = xero_client.user(user_id)
+            user_list.append(user)
+        user_list_file = open(project_folder+"/users.json", "w+")
+        json.dump(user_list, user_list_file)
+        user_list_file.close()
+        
     def close_previous_month_projects(self):
         counter = 0
         for items in self.get_all_projects():

@@ -66,9 +66,41 @@ run-validate:
 run-report:
   image: $CI_REGISTRY_IMAGE:latest
   stage: run-report
+  before_script:
+    - apk add --no-cache --update openssh-client git unzip sshpass rsync
+    - eval $(ssh-agent -s)
+    - echo "$XERO_REPORT_REPO_SSH_KEY" | tr -d '\r' | ssh-add - > /dev/null
+
+    - mkdir -p ~/.ssh
+    - chmod 700 ~/.ssh
+
+    - ssh-keyscan gitlab.com >> ~/.ssh/known_hosts
+    - chmod 644 ~/.ssh/known_hosts
+
+    - git config --global user.email $XERO_REPORT_REPO_USERMAIL
+    - git config --global user.name $XERO_REPORT_REPO_USERNAME
   script:
     - export GITLAB_PRIVATE_TOKEN=$GITLAB_PRIVATE_TOKEN && export CI_PROJECT_ID=$CI_PROJECT_ID
+    # Pull report repo
+    - echo "Pulling external repo into build"
+    - git clone $XERO_REPORT_REPO_ADDRESS
+    - cd $XERO_REPORT_REPO_NAME
+    # Create backup data folder
+    - if [ ! -d backup-data  ];then
+    - mkdir backup-data
+    - fi
+    # Create folder for this job's report
+    - TIME=$(date +%Y%m%d)"-"$(date +%H%M%S)
+    - mkdir backup-data/$TIME
+
+    # Generate report and json data
     - python3 /app/xero_report.py report --client-id=$CLIENT_ID --client-secret=$CLIENT_SECRET --refresh-token=$REFRESH_TOKEN --tenant-id=$TENANT_ID
+    # Push to target repo
+    - cp -Rf /app/out/ backup-data/$TIME
+    - cd backup-data/$TIME && ls
+    - git add .
+    - git commit -m"update backup data"
+    - git push
   when: manual
 
 run-close:

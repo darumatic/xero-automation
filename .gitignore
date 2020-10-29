@@ -19,3 +19,4 @@ publickey.cer
 *.iml
 *.egg-info
 .owners
+/variables/

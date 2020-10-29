@@ -18,7 +18,6 @@ build-master:
     - docker push "$CI_REGISTRY_IMAGE"
 #  only:
 #    - master
-#    - close-projects  # just for testing, REMOVE this line
 
 build-release:
   stage: build

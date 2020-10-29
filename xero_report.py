@@ -365,12 +365,18 @@ class XeroReport:
 
         for items in self.get_all_projects():
             for item in items['items']:
+                # Check all projects' timestamp,not only for current month
+                errors[item["name"]] = []
+                timestamp_error = self.validate_timestamp(item)
+                if timestamp_error:
+                    timestamp_error = timestamp_error.encode('utf-8').strip()
+                    errors[item["name"]].append(timestamp_error)
+                    amount_of_errors += 1
                 if self.filter not in item['name']:
                     continue
                 print("Name: {0}, ProjectID: {1}, Status: {2}, ContactId: {3}".format(item["name"], item["projectId"],
                                                                                       item["status"],
                                                                                       item["contactId"]))
-                errors[item["name"]] = []
                 project_errors = reporter.validate(self.output, item["projectId"], month_start, month_end)
                 errors[item["name"]] = project_errors
                 amount_of_errors = len(project_errors) + amount_of_errors
@@ -477,27 +483,30 @@ class XeroReport:
             else:
                 print("{0} projects have been closed".format(counter))
 
-    def generate_work_days(self, year, month):
-        workdays = []
-        for week in calendar.monthcalendar(int(year), int(month)):
-            del week[5:7]
-            while 0 in week:
-                week.remove(0)
-            for day in week:
-                if day < 10:
-                    date = year + "-" + month + "-" + "0" + str(day)
-                else:
-                    date = year + "-" + month + "-" + str(day)
-                workdays.append(date)
+    def validate_timestamp(self, project):
+        project_name = project["name"]
+        VALIDATION_ERROR = "Timestamp Validation Error:"
+        try:
+            index = project_name.rindex("-")
+            timestamp = project_name[index + 1:].strip()
+        except ValueError:
+            return "{0} Doesn't contain timestamp starting with '-'.".format(VALIDATION_ERROR)
 
-        # Remove holidays
-        for year in self.NSW_HOLIDAYS:
-            if year["year"] == "2020":
-                for holidays in year["holidays"]:
-                    if "2020-04" in holidays and holidays in workdays:
-                        workdays.remove(holidays)
+        # Length
+        if len(timestamp) != 6:
+            return "{0} Invalid length.".format(VALIDATION_ERROR)
 
-        return workdays
+        # Non-numeric character
+        if not timestamp.isdigit():
+            return "{0} Timestamp contains illegal characters, only numbers allowed.".format(VALIDATION_ERROR)
+
+        # Year
+        if timestamp[0:2] != "20":
+            return "{0} Invalid year. Year should be : 20XX".format(VALIDATION_ERROR)
+
+        #  Month
+        if not (1 <= int(timestamp[4:]) <= 12):
+            return "{0} Invalid month. Month should from [01 - 12].".format(VALIDATION_ERROR)
 
 
 if __name__ == "__main__":

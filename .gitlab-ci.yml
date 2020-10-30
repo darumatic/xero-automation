@@ -58,7 +58,9 @@ run-validate:
     - echo "Pulling configration repo"
     - git clone $CONFIG_REPO
     - cp -Rf  $CONFIG_REPO_NAME/variables /app
-    - cp $CONFIG_REPO_NAME/.* ./
+    - cp $CONFIG_REPO_NAME/variables/.* ./
+    - echo $pwd
+    - ls -la /app
     - source /app/variables/email_sender.env
     - export GITLAB_PRIVATE_TOKEN=$GITLAB_PRIVATE_TOKEN && export CI_PROJECT_ID=$CI_PROJECT_ID
     - python3 /app/xero_report.py validate --client-id=$CLIENT_ID --client-secret=$CLIENT_SECRET --refresh-token=$REFRESH_TOKEN --tenant-id=$TENANT_ID

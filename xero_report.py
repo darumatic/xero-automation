@@ -421,9 +421,6 @@ class XeroReport:
         if amount_of_errors == 0:
             result = "There are no errors in {0}. All tasks are validated successfully!!".format(self.filter)
             print(result)
-            # Send Email
-            if os.environ.get("CI_SERVER") == "yes":
-                XeroEmailSender.send_via_smpt(result)
             return True
         else:
             result = "There were a total of {0} errors in {1}.".format(amount_of_errors, self.filter)

@@ -56,7 +56,7 @@ run-validate:
   script:
     #  Pull configuration repo
     - echo "Pulling configration repo"
-    - echo $pwd
+    - pwd
     - git clone $CONFIG_REPO
     - cp -Rf  $CONFIG_REPO_NAME/variables /app
     - cp -f $CONFIG_REPO_NAME/variables/.* ./

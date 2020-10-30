@@ -20,3 +20,4 @@ publickey.cer
 *.egg-info
 .owners
 /variables/
+.*

@@ -50,11 +50,11 @@ class XeroReport:
         self.OWNERS = eval(owners)
         print(self.OWNERS)
         # EMPLOYEES
-        EMPLOYEES_FILE = os.path.join(self.CURRENT_DIRECTORY, "variables/employees.json")
+        EMPLOYEES_FILE = os.path.join(self.CURRENT_DIRECTORY, ".employees.json")
         employees = open(EMPLOYEES_FILE).read().strip()
         self.EMPLOYEES = eval(employees)
         # NSW Public Holidays
-        NSW_HOLIDAYS_FILE = os.path.join(self.CURRENT_DIRECTORY, "variables/NSW_holidays.json")
+        NSW_HOLIDAYS_FILE = os.path.join(self.CURRENT_DIRECTORY, ".NSW_holidays.json")
         holidays = open(NSW_HOLIDAYS_FILE).read().strip()
         self.NSW_HOLIDAYS = eval(holidays)
 
@@ -83,7 +83,7 @@ class XeroReport:
             self.end_time = self.end_time + datetime.timedelta(hours=23, minutes=59, seconds=59)
 
 
-    def validate(self, output_dir, project_id, start_month, end_month):
+    def validate_month_range(self, output_dir, project_id, start_month, end_month):
         VALIDATION_ERROR = "Validation Error: "
         project_data = self.load_data(project_id)
         errors = []
@@ -336,7 +336,7 @@ class XeroReport:
                 reporter.generate_report(self.output, item["projectId"])
 
 
-    def validate_active_projects_time_limits(self, reporter):
+    def validate_projects(self, reporter):
         month_start = self.start_time
         month_end = self.end_time + self.SYDNEY_TIME_OFFSET
         DARUMATIC_INIT_TIME = '2017-02-20'
@@ -365,63 +365,53 @@ class XeroReport:
 
         for items in self.get_all_projects():
             for item in items['items']:
-                # Check all projects' timestamp,not only for current month
-                errors[item["name"]] = []
-                timestamp_error = self.validate_timestamp(item)
-                if timestamp_error:
-                    timestamp_error = timestamp_error.encode('utf-8').strip()
-                    errors[item["name"]].append(timestamp_error)
-                    amount_of_errors += 1
+                # Check active projects timestamp in project name'
                 if self.filter not in item['name']:
                     continue
                 print("Name: {0}, ProjectID: {1}, Status: {2}, ContactId: {3}".format(item["name"], item["projectId"],
                                                                                       item["status"],
                                                                                       item["contactId"]))
-                project_errors = reporter.validate(self.output, item["projectId"], month_start, month_end)
+                errors[item["name"]] = []
+                # validate that projects have timestamps------------------
+                timestamp_error = self.validate_timestamp(item)
+                if timestamp_error:
+                    timestamp_error = timestamp_error.encode('utf-8').strip()
+                    errors[item["name"]].append(timestamp_error)
+                    amount_of_errors += 1
+                # validate tasks month range ------------------
+                project_errors = reporter.validate_month_range(self.output, item["projectId"], month_start, month_end)
                 errors[item["name"]] = project_errors
                 amount_of_errors = len(project_errors) + amount_of_errors
 
-        # TODO New monthly validation function
-        # Get previous month
-        year = self.filter[0:4]
-        month = self.filter[4:6]
-        if month == "01":
-            year = str(int(year)-1)
-            month = "12"
-        else:
-            if int(month) < 10:
-                month = "0" + str(int(month) - 1)
-            else:
-                month = str(int(month) - 1)
-
+        #validate that employees worked all working days-----------------
         # Working days for previous month
-        last_month_workdays = self.generate_work_days(year, month)
-
-        # Get employees' worked days
-        for employee in self.EMPLOYEES:
-            errors[employee["userName"]] = []
-            last_month_employee_workdays = []
-            for workdays in employee["working_days"]:
-                if (year + "-" + month) in workdays["date"]:
-                    last_month_employee_workdays.append(workdays)
-            # Validate
-            # @days are required work days
-            # @workdays are the days when employees attend
-            # @workdays are dictionaries {"date":"" , "duration":""}
-            for days in last_month_workdays:
-                attend = False
-                for workdays in last_month_employee_workdays:
-                    if days == workdays["date"]:
-                        attend = True
-                        if workdays["duration"] < 8:
-                            error = "Working hour error: {0} attend less than 8 hours on {1}".format(employee["userName"], days)
-                            errors[employee["userName"]].append(error)
-
-                if not attend:
-                    error = "Working hour error: {0} didn't attend on {1}".format(employee["userName"], days)
-                    errors[employee["userName"]].append(error)
-                # Update errors amount
-            amount_of_errors = len(errors[employee["userName"]]) + amount_of_errors
+        # year = self.filter[0:4]
+        # month = self.filter[4:6]
+        # last_month_workdays = self.generate_work_days(year, month, self.filter)
+        # for employee in self.EMPLOYEES:
+        #     errors[employee["userName"]] = []
+        #     last_month_employee_workdays = []
+        #     for workdays in employee["working_days"]:
+        #         if (year + "-" + month) in workdays["date"]:
+        #             last_month_employee_workdays.append(workdays)
+        #     # Validate
+        #     # @days are required work days
+        #     # @workdays are the days when employees attend
+        #     # @workdays are dictionaries {"date":"" , "duration":""}
+        #     for days in last_month_workdays:
+        #         attend = False
+        #         for workdays in last_month_employee_workdays:
+        #             if days == workdays["date"]:
+        #                 attend = True
+        #                 if workdays["duration"] < 8:
+        #                     error = "Working hour error: {0} attend less than 8 hours on {1}".format(employee["userName"], days)
+        #                     errors[employee["userName"]].append(error)
+        #
+        #         if not attend:
+        #             error = "Working hour error: {0} didn't attend on {1}".format(employee["userName"], days)
+        #             errors[employee["userName"]].append(error)
+        #         # Update errors amount
+        #     amount_of_errors = len(errors[employee["userName"]]) + amount_of_errors
 
         print("*" * 80)
         print("List of Validation errors")
@@ -431,12 +421,14 @@ class XeroReport:
             result = "There are no errors in {0}. All tasks are validated successfully!!".format(self.filter)
             print(result)
             # Send Email
-            XeroEmailSender.send_via_smpt(result)
+            if os.environ.get("CI_SERVER") == "yes":
+                XeroEmailSender.send_via_smpt(result)
             return True
         else:
             result = "There were a total of {0} errors in {1}.".format(amount_of_errors, self.filter)
             print(result)
-            XeroEmailSender.send_via_smpt(result, errors)
+            if os.environ.get("CI_SERVER") == "yes":
+                XeroEmailSender.send_via_smpt(result, errors)
             return False
 
     def backup_data(self, project_id, project_name):
@@ -508,7 +500,19 @@ class XeroReport:
         if not (1 <= int(timestamp[4:]) <= 12):
             return "{0} Invalid month. Month should from [01 - 12].".format(VALIDATION_ERROR)
 
-    def generate_work_days(self, year, month):
+    def generate_work_days(self, year, month, current_filter):
+        # Get previous month
+        year = current_filter[0:4]
+        month = current_filter[4:6]
+        if month == "01":
+            year = str(int(year)-1)
+            month = "12"
+        else:
+            if int(month) < 10:
+                month = "0" + str(int(month) - 1)
+            else:
+                month = str(int(month) - 1)
+
         workdays = []
         for week in calendar.monthcalendar(int(year), int(month)):
             del week[5:7]
@@ -552,7 +556,7 @@ if __name__ == "__main__":
     elif command == "close":
         reporter.close_previous_month_projects()
     elif command == "validate":
-        if not(reporter.validate_active_projects_time_limits(reporter)):
+        if not(reporter.validate_projects(reporter)):
             print("The Validate function failed. Please check the logs above for more information. \n"
                   "If any particular task item should be skipped, please add its id to the {0} \n"
                   " environment variable following this format: {1}".format("VALIDATION_EXCEPTIONS",

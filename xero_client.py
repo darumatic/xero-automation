@@ -93,7 +93,7 @@ class XeroClient:
                     break
         else:
             response = self.get_request(url)
-        print("URL %s, response: %s" % (url, json.dumps(response)))
+        #print("URL %s, response: %s" % (url, json.dumps(response)))
         return response
 
     def patch_projects(self, url, data):

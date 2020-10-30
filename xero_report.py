@@ -373,15 +373,16 @@ class XeroReport:
                                                                                       item["contactId"]))
                 errors[item["name"]] = []
                 # validate that projects have timestamps------------------
-                timestamp_error = self.validate_timestamp(item)
+                timestamp_error = self.validate_timestamp(item['name'])
                 if timestamp_error:
                     timestamp_error = timestamp_error.encode('utf-8').strip()
                     errors[item["name"]].append(timestamp_error)
                     amount_of_errors += 1
                 # validate tasks month range ------------------
                 project_errors = reporter.validate_month_range(self.output, item["projectId"], month_start, month_end)
-                errors[item["name"]] = project_errors
-                amount_of_errors = len(project_errors) + amount_of_errors
+                if len(project_errors) > 0:
+                    errors[item["name"]] = project_errors
+                    amount_of_errors = len(project_errors) + amount_of_errors
 
         #validate that employees worked all working days-----------------
         # Working days for previous month
@@ -475,30 +476,32 @@ class XeroReport:
             else:
                 print("{0} projects have been closed".format(counter))
 
-    def validate_timestamp(self, project):
-        project_name = project["name"]
+    def validate_timestamp(self, project_name):
         VALIDATION_ERROR = "Timestamp Validation Error:"
         try:
-            index = project_name.rindex("-")
-            timestamp = project_name[index + 1:].strip()
+            index = project_name.index("-")
+            timestamp = project_name[:index].strip()
         except ValueError:
             return "{0} Doesn't contain timestamp starting with '-'.".format(VALIDATION_ERROR)
 
         # Length
         if len(timestamp) != 6:
-            return "{0} Invalid length.".format(VALIDATION_ERROR)
+            return "{0} Cannot find timestamp.".format(VALIDATION_ERROR)
 
         # Non-numeric character
         if not timestamp.isdigit():
             return "{0} Timestamp contains illegal characters, only numbers allowed.".format(VALIDATION_ERROR)
 
         # Year
+        #todo: change this for a isdate validation
         if timestamp[0:2] != "20":
             return "{0} Invalid year. Year should be : 20XX".format(VALIDATION_ERROR)
 
         #  Month
         if not (1 <= int(timestamp[4:]) <= 12):
             return "{0} Invalid month. Month should from [01 - 12].".format(VALIDATION_ERROR)
+
+        return None
 
     def generate_work_days(self, year, month, current_filter):
         # Get previous month

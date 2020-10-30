@@ -19,7 +19,7 @@ class XeroEmailSender:
         if errors:
             errors = XeroEmailSender.format_errors(errors)
 
-        msg = MIMEText(result + "\n" + errors, 'plain', 'utf-8')
+        msg = MIMEText("{0} \n {1}".format(result, errors), 'plain', 'utf-8')
         msg['Subject'] = Header(subject, 'utf-8')
         msg['From'] = formataddr((str(Header('Xero validation report', 'utf-8')), 'qq2841864141@gmail.com'))
 

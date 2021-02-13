@@ -80,11 +80,11 @@ class XeroReport:
         # Only load employees and holidays data for validation
         if command == "validate":
             # EMPLOYEES
-            EMPLOYEES_FILE = os.path.join(self.CURRENT_DIRECTORY, "./employees.json")
+            EMPLOYEES_FILE = os.path.join(self.CURRENT_DIRECTORY, ".employees.json")
             employees = open(EMPLOYEES_FILE).read().strip()
             self.EMPLOYEES = eval(employees)
             # NSW Public Holidays
-            NSW_HOLIDAYS_FILE = os.path.join(self.CURRENT_DIRECTORY, "./NSW_holidays.json")
+            NSW_HOLIDAYS_FILE = os.path.join(self.CURRENT_DIRECTORY, ".NSW_holidays.json")
             holidays = open(NSW_HOLIDAYS_FILE).read().strip()
             self.NSW_HOLIDAYS = eval(holidays)
 

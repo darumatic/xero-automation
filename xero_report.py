@@ -3,28 +3,41 @@
 import argparse
 import calendar
 import datetime
+import json
 import os
 import pprint
 import random
 import shutil
 import sys
-import json
 
+import dateutil.parser
 import pdfkit
 import pystache
-
+import pytz
 from openpyxl import Workbook
+
 from xero_client import XeroClient
 from xero_email_sender import XeroEmailSender
 
+DEFAULT_TIMEZONE = pytz.timezone("Australia/Sydney")
+
 class XeroReport:
     def __init__(self, args):
-        self.SYDNEY_TIME_OFFSET = datetime.timedelta(hours=11)
+        self.local_timezone = self._get_local_time_zone()
+        # self.target_month_string is used for report generation
+        self.target_month_string = self._get_time_sheet_project_name()
+
         self.MAX_DURATION = 12.0
         self.CURRENT_DIRECTORY = os.path.dirname(os.path.abspath(__file__))
 
+        # These 2 times are used by the validate command as it defaults to the current month
         self.start_time = None
         self.end_time = None
+
+        # These 2 times are used by the report command as it defaults to the previous month
+        self.timesheet_start_time = self._get_time_sheet_start_time()
+        self.timesheet_end_time = self._get_time_sheet_end_time()
+
         self.client_id = args.client_id
         self.client_secret = args.client_secret
         self.tenant_id = args.tenant_id
@@ -33,55 +46,87 @@ class XeroReport:
         self.cache_tasks = {}
         self.duration_weeks = 2
         self.output = args.output
+        self.skip_owners = args.skip_owners
+
+        self.suppress_email = args.suppress_email
+        if not args.suppress_email and not self._email_env_var_present():
+            # Override and suppress anyway if none of the required env vars are present
+            self.suppress_email = True
+            print("Email environmental variables missing, suppressing emails anyway")
 
         self.add_project_times(args.start_time, args.end_time)
 
         print("CI_PROJECT_ID=%s", os.getenv('CI_PROJECT_ID', None))
         self.xero_client = XeroClient(self.client_id, self.client_secret, self.tenant_id, self.refresh_token)
         self.DONT_VALIDATE_THESE_ITEMS = eval(os.environ.get('VALIDATION_EXCEPTIONS', '[]'))
-        #TODO: change this with the Xero Contacts data
-        #example of environment variable
-        #OWNERS = "{ 'Project A': 'Neil', 'Non chargeable tasks': 'Adrian' }"
-        OWNERS_FILE = os.path.join(self.CURRENT_DIRECTORY, ".owners")
-        if os.path.isfile(OWNERS_FILE):
-            owners = open(OWNERS_FILE).read().strip()
+
+        # Only load owner data if the flag is false
+        if not self.skip_owners:
+            #TODO: change this with the Xero Contacts data
+            #example of environment variable
+            #OWNERS = "{ 'Project A': 'Neil', 'Non chargeable tasks': 'Adrian' }"
+            OWNERS_FILE = os.path.join(self.CURRENT_DIRECTORY, ".owners")
+            if os.path.isfile(OWNERS_FILE):
+                owners = open(OWNERS_FILE).read().strip()
+            else:
+                owners = os.environ['OWNERS']
+            self.OWNERS = eval(owners)
+            print(f"Owners: {self.OWNERS}")
+
         else:
-            owners = os.environ['OWNERS']
-        self.OWNERS = eval(owners)
-        print(self.OWNERS)
-        # EMPLOYEES
-        EMPLOYEES_FILE = os.path.join(self.CURRENT_DIRECTORY, ".employees.json")
-        employees = open(EMPLOYEES_FILE).read().strip()
-        self.EMPLOYEES = eval(employees)
-        # NSW Public Holidays
-        NSW_HOLIDAYS_FILE = os.path.join(self.CURRENT_DIRECTORY, ".NSW_holidays.json")
-        holidays = open(NSW_HOLIDAYS_FILE).read().strip()
-        self.NSW_HOLIDAYS = eval(holidays)
+            self.OWNERS = {}
+            print("Skipping loading owner data")
+
+        # Only load employees and holidays data for validation
+        if command == "validate":
+            # EMPLOYEES
+            EMPLOYEES_FILE = os.path.join(self.CURRENT_DIRECTORY, "./employees.json")
+            employees = open(EMPLOYEES_FILE).read().strip()
+            self.EMPLOYEES = eval(employees)
+            # NSW Public Holidays
+            NSW_HOLIDAYS_FILE = os.path.join(self.CURRENT_DIRECTORY, "./NSW_holidays.json")
+            holidays = open(NSW_HOLIDAYS_FILE).read().strip()
+            self.NSW_HOLIDAYS = eval(holidays)
 
     def add_project_times(self, start_time, end_time):
-        now = datetime.datetime.utcnow()
-        self.filter = str(now)[0:4] + str(now)[5:7]
+        # REVIEW Potential bug: time entries that are logged the second between 23:59:59 and 00:00:00 between the end and start of a new month may not be included.
+
+        local_now = datetime.datetime.now(self.local_timezone)
+        # self.filter is the current month
+        self.filter = str(local_now)[0:4] + str(local_now)[5:7]
         print("Project Filter: {0}".format(self.filter))
-        #set time stamps as per parameters
+
+        # For the following, the time (whether from start_time or self.filter) is in local time
+        # We localise it with local timezone information and normalise it into UTC
         if start_time:
-            #adjust UTC to Sydney tz
-            self.start_time = datetime.datetime.strptime(start_time + 'Z', '%Y-%m-%dZ') - self.SYDNEY_TIME_OFFSET
+            # Input is in local time
+            start = datetime.datetime.strptime(start_time, "%Y-%m-%d")
+        else:
+            # Default to the start of the current month
+            start = datetime.datetime.strptime(self.filter, "%Y%m")
+        # Gives it timezone information and normalise to UTC
+        self.start_time = self.local_timezone.localize(start).astimezone(pytz.utc)
+
         if end_time:
             #adjust UTC to Sydney tz
-            self.end_time = datetime.datetime.strptime(end_time + 'Z', '%Y-%m-%dZ') - self.SYDNEY_TIME_OFFSET
-            #shift to the last second of the day
-            self.end_time = self.end_time + datetime.timedelta(hours=23, minutes=59, seconds=59)
+            end = datetime.datetime.strptime(end_time, "%Y-%m-%d")
+            end.replace(hour=23, minute=59, second=59)
+            # self.end_time = datetime.datetime.strptime(end_time + 'Z', '%Y-%m-%dZ') - self.SYDNEY_TIME_OFFSET
+            # #shift to the last second of the day
+            # self.end_time = self.end_time + datetime.timedelta(hours=23, minutes=59, seconds=59)
+        else:
+            # Default to the end of the current month
+            month_last_day = calendar.monthrange(local_now.year, local_now.month)[1]
+            end = datetime.datetime.strptime(self.filter, "%Y%m")
+            end.replace(day=month_last_day, hour=23, minute=59, second=59)
 
-        #set up defaults unless they were setup before
-        if not self.start_time:
-            self.start_time = datetime.datetime.strptime(self.filter + "01" + 'Z', '%Y%m%dZ') - self.SYDNEY_TIME_OFFSET
-        if not self.end_time:
-            last_day = calendar.monthrange(now.year, now.month)[1]
-            end_time_str = "{0}{1}Z".format(self.filter, last_day)
-            self.end_time = datetime.datetime.strptime(end_time_str, '%Y%m%dZ') - self.SYDNEY_TIME_OFFSET
-            #shift to the last second of the day
-            self.end_time = self.end_time + datetime.timedelta(hours=23, minutes=59, seconds=59)
-
+            # last_day = calendar.monthrange(now.year, now.month)[1]
+            # end_time_str = "{0}{1}Z".format(self.filter, last_day)
+            # self.end_time = datetime.datetime.strptime(end_time_str, '%Y%m%dZ') - self.SYDNEY_TIME_OFFSET
+            # #shift to the last second of the day
+            # self.end_time = self.end_time + datetime.timedelta(hours=23, minutes=59, seconds=59)
+        # Gives it timezone information and normalises it to UTC
+        self.end_time = self.local_timezone.localize(end).astimezone(pytz.utc)
 
     def validate_month_range(self, output_dir, project_id, start_month, end_month):
         VALIDATION_ERROR = "Validation Error: "
@@ -108,7 +153,13 @@ class XeroReport:
 
     def load_data(self, project_id):
         xero_client = self.xero_client
-        time_list = xero_client.time(project_id, self.start_time, self.end_time)
+
+        # Use different times depending on which command
+        if self.command == "report":
+            time_list = xero_client.time(project_id, self.timesheet_start_time, self.timesheet_end_time)
+        else:
+            time_list = xero_client.time(project_id, self.start_time, self.end_time)
+
         project = xero_client.project(project_id)
 
         tasks = {}
@@ -145,14 +196,26 @@ class XeroReport:
                 'items': items
             })
 
-        return {
-            'startTime': (self.start_time + self.SYDNEY_TIME_OFFSET).strftime('%d %b %Y'),
-            'endTime': (self.end_time + self.SYDNEY_TIME_OFFSET).strftime('%d %b %Y'),
+        return_dict = {
             'totalHours': total_hours,
             'totalDays': self.round_hours_to_days(total_hours),
             'projectName': project['name'],
             'tasks': user_tasks
         }
+
+        if self.command == "report":
+            return_dict["startTime"] = self.timesheet_start_time.astimezone(self.local_timezone).strftime("%d %b %Y")
+            return_dict["endTime"] = self.timesheet_end_time.astimezone(self.local_timezone).strftime("%d %b %Y")
+
+        else:
+            return_dict["startTime"] = self.start_time.astimezone(self.local_timezone).strftime("%d %b %Y")
+            return_dict["endTime"] = self.end_time.astimezone(self.local_timezone).strftime("%d %b %Y")
+
+            # return_dict["startTime"] = (self.start_time + self.SYDNEY_TIME_OFFSET).strftime('%d %b %Y')
+            # return_dict["endTime"] = (self.end_time + self.SYDNEY_TIME_OFFSET).strftime('%d %b %Y')
+
+        return return_dict
+
 
     def generate_report(self, output_dir, project_id):
         print('Generate report, project id=%s' % project_id)
@@ -208,7 +271,11 @@ class XeroReport:
         if short_project_name in self.OWNERS.keys():
             owner = self.OWNERS[short_project_name]
         else:
-            raise Exception("Owner for proj '{}' not found".format(short_project_name))
+            # Leave owner field blank if the skip owners flag is True, otherwise raise an exception
+            if self.skip_owners:
+                print(f"Owner not found for project {short_project_name}, leaving it blank")
+            else:
+                raise Exception("Owner for proj '{}' not found".format(short_project_name))
 
         i_row = ROW_OFFSET
         for consultant in time_list['tasks']:
@@ -241,9 +308,9 @@ class XeroReport:
                     skip = True
 
         report_name += '_'
-        report_name += self.start_time.strftime('%d-%b-%Y').lower()
+        report_name += self.timesheet_start_time.astimezone(self.local_timezone).strftime('%d-%b-%Y').lower()
         report_name += '-'
-        report_name += self.end_time.strftime('%d-%b-%Y').lower()
+        report_name += self.timesheet_end_time.astimezone(self.local_timezone).strftime('%d-%b-%Y').lower()
         report_name += '.' + ''.join(random.sample('0123456789', 3))
         report_name += '.pdf'
         return report_name
@@ -252,12 +319,14 @@ class XeroReport:
         user = self.user(time['userId'])
         task = self.task(time['taskId'], project_id)
 
-        sydney_time = datetime.datetime.strptime(time['dateUtc'], '%Y-%m-%dT%H:%M:%SZ') + self.SYDNEY_TIME_OFFSET
+        # Interpretate UTC string and then save it as local time
+        local_time = dateutil.parser.parse(time['dateUtc']).astimezone(self.local_timezone)
+        # local_time = datetime.datetime.strptime(time['dateUtc'], '%Y-%m-%dT%H:%M:%SZ').astimezone(self.local_timezone)
         ret = {
             'userName': user['name'],
             'taskName': task['name'],
             'id': task['taskId'],
-            'date': sydney_time.strftime('%d-%b-%Y'),
+            'date': local_time.strftime('%d-%b-%Y'),
             'duration': self.round_minutes_to_hours(time['duration'])
         }
 
@@ -317,16 +386,28 @@ class XeroReport:
         else:
             os.makedirs(self.output)
 
+        # This should be last month unless otherwise specified
+        # E.g. when run in January 2021, target_project is "202012"
+        # E.g. when run in March 2021, target_project is "202102"
+        # This can be changed with $PROJECT_NAME
+        target_project = self.target_month_string
+        print(f"Creating timesheet for projects named {target_project}")
+
         # Create active projects json file
         os.mkdir(self.output+"/backup/")
         f = open(self.output+"/backup/all_projects.json", "w+")
         json.dump(self.get_active_projects(), f)
         f.close()
 
+        # Flag to check whether there was a project with name target_project
+        project_found = False
         for items in self.get_all_projects():
             for item in items['items']:
-                if self.filter not in item['name']:
+                # Only generate timesheet for projects named target_project
+                if target_project not in item['name']:
                     continue
+
+                project_found = True
                 print('Generate Xero report for project %s between %s %s to %s' % (
                     item["projectId"], self.start_time, self.end_time, self.output))
                 print("Name: {0}, ProjectID: {1}, Status: {2}, ContactId: {3}".format(item["name"], item["projectId"],
@@ -335,10 +416,30 @@ class XeroReport:
                 reporter.backup_data(item["projectId"], item["name"])
                 reporter.generate_report(self.output, item["projectId"])
 
+                if self.suppress_email:
+                    print("Timesheet not sent because suppress flag is true")
+
+                else:
+                    attachment_paths = []
+                    attachments = os.listdir(self.output)
+                    # Gets all files in the output folder that end with .xls or .pdf
+                    for attachment in attachments:
+                        full_path = os.path.join(self.output, attachment)
+                        if attachment.endswith((".xls", ".pdf")) and not os.path.isdir(full_path):
+                            attachment_paths.append(full_path)
+
+                    if attachment_paths == []:
+                        raise Exception("Couldn't find any files to attach to email")
+
+                    XeroEmailSender.send_timesheet(attachment_paths)
+
+        if not project_found:
+            raise Exception(f"No project named {target_project} was found on Xero!")
 
     def validate_projects(self, reporter):
+        # Assume we are working in UTC time
         month_start = self.start_time
-        month_end = self.end_time + self.SYDNEY_TIME_OFFSET
+        month_end = self.end_time
         DARUMATIC_INIT_TIME = '2017-02-20'
         start_validation_time = DARUMATIC_INIT_TIME
         self.add_project_times(start_validation_time, None)
@@ -422,11 +523,14 @@ class XeroReport:
             result = "There are no errors in {0}. All tasks are validated successfully!!".format(self.filter)
             print(result)
             return True
+
         else:
             result = "There were a total of {0} errors in {1}.".format(amount_of_errors, self.filter)
             print(result)
-            if os.environ.get("CI_SERVER") == "yes":
-                XeroEmailSender.send_via_smpt(result, errors)
+            if not self.suppress_email:
+                XeroEmailSender.send_validation_report(result, errors)
+            else:
+                print("Validation report not sent because suppress flag is true")
             return False
 
     def backup_data(self, project_id, project_name):
@@ -453,7 +557,7 @@ class XeroReport:
         user_list_file = open(project_folder+"/users.json", "w+")
         json.dump(user_list, user_list_file)
         user_list_file.close()
-        
+
     def close_previous_month_projects(self):
         counter = 0
         for items in self.get_all_projects():
@@ -535,6 +639,70 @@ class XeroReport:
         return workdays
 
 
+    def _get_time_sheet_project_name(self) -> str:
+        """
+        Gets the project name for the timesheet
+        - Defaults to last month if `$PROJECT_NAME` isn't found
+        """
+        if "PROJECT_NAME" in os.environ:
+            print(f"Environmental variable PROJECT_NAME found, using {os.getenv('PROJECT_NAME')}")
+            return os.getenv("PROJECT_NAME")
+
+        now = datetime.datetime.now(self.local_timezone)
+        year = now.year
+        month = now.month - 1
+        if month == 0:
+            month = 12
+            year -= 1
+
+        print(f"Environmental variable PROJECT_NAME not found, defaulting to {year}{month:02d}")
+        return f"{year}{month:02d}"
+
+
+    def _get_time_sheet_start_time(self) -> datetime.datetime:
+        target_month = datetime.datetime.strptime(self.target_month_string, "%Y%m")
+        # This datetime object is still in Sydney time, but is timezone aware
+        localised_datetime_object = self.local_timezone.localize(target_month)
+        # Turn it back into UTC for compatability with existing code
+        return localised_datetime_object.astimezone(pytz.timezone('UTC'))
+
+
+    def _get_time_sheet_end_time(self) -> datetime.datetime:
+        target_month = datetime.datetime.strptime(self.target_month_string, "%Y%m")
+        month_last_day = calendar.monthrange(target_month.year, target_month.month)[1]
+        # This datetime object is still in Sydney time, but is timezone aware
+        # Day is set to last day of the month
+        localised_datetime_object = self.local_timezone.localize(target_month.replace(day=month_last_day, hour=23, minute=59, second=59))
+        # Turn it back into UTC for compatability with existing code
+        return localised_datetime_object.astimezone(pytz.timezone('UTC'))
+
+
+    def _get_local_time_zone(self):
+        """
+        Gets the timezone from `$LOCAL_TIMEZONE`
+        - Defaults to `DEFAULT_TIMEZONE`
+        """
+        if "LOCAL_TIMEZONE" in os.environ:
+            timezone = os.getenv("LOCAL_TIMEZONE")
+            print(f"Setting timezone as {timezone}")
+            try:
+                timezone = pytz.timezone(timezone)
+            except pytz.UnknownTimeZoneError:
+                raise Exception(f"Couldn't find timezone {timezone}, use the 'TZ database name' field from https://en.wikipedia.org/wiki/List_of_tz_database_time_zones")
+        else:
+            timezone = DEFAULT_TIMEZONE
+
+        return timezone
+
+    def _email_env_var_present(self) -> bool:
+        """
+        Checks whether the environmental variables for emailing are all present:
+        - `$SENDER`
+        - `$RECEIVER`
+        - `$SENDGRID_API_KEY`
+        """
+        return "SENDER" in os.environ and "RECEIVER" in os.environ and "SENDGRID_API_KEY" in os.environ
+
 if __name__ == "__main__":
     current_dir = os.path.dirname(os.path.realpath(__file__))
 
@@ -547,9 +715,15 @@ if __name__ == "__main__":
     parser.add_argument('--end-time', type=str, required=False, default=None)
     parser.add_argument('--output', type=str, default=os.path.join(current_dir, "out"))
 
+    # Optional argument to skip loading in owners data
+    parser.add_argument('--skip-owners', type=bool, default=False)
+    # Optional argument to not send emails
+    parser.add_argument('--suppress-email', type=bool, default=False)
+
     command = sys.argv[1]
     args = parser.parse_args(sys.argv[2:])
     reporter = XeroReport(args)
+    reporter.command = command
 
     if command == "report":
         reporter.create_monthly_time_sheets(reporter)

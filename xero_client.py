@@ -9,8 +9,6 @@ import requests
 
 class XeroClient:
     def __init__(self, client_id, client_secret, tenant_id, refresh_token):
-        print(f"DEBUG: Old refresh token is {refresh_token}, requesting a new one...")
-
         headers = {
             'authorization': "Basic " + base64.b64encode((client_id + ":" + client_secret).encode(encoding="utf-8")).decode("utf-8"),
             'Content-Type': 'application/x-www-form-urlencoded'
@@ -22,13 +20,8 @@ class XeroClient:
         })
 
         body = r.json()
-        if r.status_code != 200:
-            raise Exception(f"Failed to get tokens from Xero, check whether the refresh token is still valid. HTTP code {r.status_code}, body: {body}")
-
         access_token = body["access_token"]
         refresh_token = body["refresh_token"]
-
-        print(f"DEBUG: New refresh token is {refresh_token}")
         self.update_refresh_token(refresh_token)
 
         self.headers = {
@@ -42,7 +35,6 @@ class XeroClient:
     def update_refresh_token(self, refresh_token):
         gitlab_token = os.getenv('GITLAB_PRIVATE_TOKEN', None)
         if gitlab_token:
-            print("GitLab private token found")
             project_id = os.getenv('CI_PROJECT_ID', None)
             if not project_id:
                 raise RuntimeError("CI_PROJECT_ID is not properly defined")
@@ -54,10 +46,7 @@ class XeroClient:
                 'value': refresh_token
             })
             if r.status_code != 200:
-                raise Exception(f"Failed to upload new refresh token to GitLab, check whether the supplied GitLab private token is valid or has permission to access the repo. Content: {r.content}")
-
-        else:
-            print("GitLab private token not present")
+                raise Exception(r.content)
 
         with open("/tmp/refresh_token.txt", "w") as f:
             f.write("{0}".format(refresh_token))
@@ -66,7 +55,7 @@ class XeroClient:
         response = None
         tries = 0
         while True:
-            # print("Getting request...  {0}".format(url))
+            print("Getting request...  {0}".format(url))
             if url in self.cache.keys():
                 print("Request is cached")
                 response = self.cache[url]
@@ -104,7 +93,7 @@ class XeroClient:
                     break
         else:
             response = self.get_request(url)
-        # print("URL %s, response: %s" % (url, json.dumps(response)))
+        #print("URL %s, response: %s" % (url, json.dumps(response)))
         return response
 
     def patch_projects(self, url, data):

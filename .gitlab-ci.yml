@@ -72,10 +72,7 @@ run-report:
   before_script:
     - apk add --no-cache --update openssh-client git unzip sshpass rsync
     - eval $(ssh-agent -s)
-
-    # Adding ssh keys is done in script
-    # - echo "$XERO_REPORT_REPO_SSH_KEY" | tr -d '\r' | ssh-add - > /dev/null
-    # - echo "$CONFIG_REPO_SSHKEY" | tr -d '\r' | ssh-add - > /dev/null
+    - echo "$XERO_REPORT_REPO_SSH_KEY" | tr -d '\r' | ssh-add - > /dev/null
 
     - mkdir -p ~/.ssh
     - chmod 700 ~/.ssh
@@ -86,19 +83,8 @@ run-report:
     - git config --global user.email $XERO_REPORT_REPO_USERMAIL
     - git config --global user.name $XERO_REPORT_REPO_USERNAME
   script:
-    # Pull configuration repo
-    - echo "$CONFIG_REPO_SSHKEY" | tr -d '\r' | ssh-add - > /dev/null
-    - echo "Pulling configration repo"
-    - git clone $CONFIG_REPO
-    - cp -Rf  $CONFIG_REPO_NAME/variables /app
-    - source /app/variables/email_sender.env
-
-    # Delete the first identity
-    - ssh-add -D
-
     - export GITLAB_PRIVATE_TOKEN=$GITLAB_PRIVATE_TOKEN && export CI_PROJECT_ID=$CI_PROJECT_ID
     # Pull report repo
-    - echo "$XERO_REPORT_REPO_SSH_KEY" | tr -d '\r' | ssh-add - > /dev/null
     - echo "Pulling external repo into build"
     - git clone $XERO_REPORT_REPO_ADDRESS
     - cd $XERO_REPORT_REPO_NAME
@@ -112,7 +98,6 @@ run-report:
 
     # Generate report and json data
     - python3 /app/xero_report.py report --client-id=$CLIENT_ID --client-secret=$CLIENT_SECRET --refresh-token=$REFRESH_TOKEN --tenant-id=$TENANT_ID
-
     # Push to target repo
     - cp -Rf /app/out/ backup-data/$TIME
     - cd backup-data/$TIME && ls

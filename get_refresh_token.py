@@ -4,7 +4,6 @@ import argparse
 import os
 import sys
 from http.server import BaseHTTPRequestHandler, HTTPServer
-import webbrowser
 
 from requests_oauthlib import OAuth2Session
 
@@ -37,17 +36,14 @@ class oauth_callback_handler(BaseHTTPRequestHandler):
             print('Error, no connections.')
             return
 
-        print("\n" + "=" * 80)
-        print("TENANT_ID:\n%s" % connections[0]['tenantId'])
-        print("REFRESH_TOKEN:\n%s" % token['refresh_token'])
-        print("=" * 80 + "\n")
-
+        print("TENANT_ID:%s" % connections[0]['tenantId'])
+        print("REFRESH_TOKEN:%s" % token['refresh_token'])
 
         self.send_response(200)
         self.send_header('Content-type', 'text/html')
         self.end_headers()
         self.wfile.write(b"<html>Success! Checkout console output.</html>")
-        # self.wfile.close()
+        self.wfile.close()
         server_state = False
 
 
@@ -67,7 +63,6 @@ if __name__ == "__main__":
 
     print("Please open the following URL in your browser:")
     print(authorization_url)
-    webbrowser.open(authorization_url)
     server = HTTPServer(('', PORT_NUMBER), oauth_callback_handler)
     while server_state:
         server.handle_request()

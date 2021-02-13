@@ -137,7 +137,7 @@ class XeroReport:
             for item in tasks['items']:
                 if item['id'] in self.DONT_VALIDATE_THESE_ITEMS:
                     continue
-                task_date = datetime.datetime.strptime(item['date'], '%d-%b-%Y')
+                task_date = datetime.datetime.strptime(item['date'], '%d-%b-%Y').astimezone(pytz.utc)
                 error = None
                 if task_date < start_month or task_date > end_month:
                     error = "{0} Out Of The Month Range - {1}".format(VALIDATION_ERROR, item)
@@ -664,7 +664,7 @@ class XeroReport:
         # This datetime object is still in Sydney time, but is timezone aware
         localised_datetime_object = self.local_timezone.localize(target_month)
         # Turn it back into UTC for compatability with existing code
-        return localised_datetime_object.astimezone(pytz.timezone('UTC'))
+        return localised_datetime_object.astimezone(pytz.utc)
 
 
     def _get_time_sheet_end_time(self) -> datetime.datetime:
@@ -674,7 +674,7 @@ class XeroReport:
         # Day is set to last day of the month
         localised_datetime_object = self.local_timezone.localize(target_month.replace(day=month_last_day, hour=23, minute=59, second=59))
         # Turn it back into UTC for compatability with existing code
-        return localised_datetime_object.astimezone(pytz.timezone('UTC'))
+        return localised_datetime_object.astimezone(pytz.utc)
 
 
     def _get_local_time_zone(self):

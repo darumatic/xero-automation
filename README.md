@@ -82,7 +82,7 @@ Xero refresh token expired after we retrieve access token, so we need to update 
 
 ### `run-report`
 
-When run on GitLab, this job will also push the report to [this repo](https://gitlab.com/darumatic/xero-report) on top of sending it as an email.
+When run on GitLab, this job will also push the report to [this repo](https://gitlab.com/xero-automation-prod/xero-reports) on top of sending it as an email.
 
 ## How it works (Oauth 2)?
 
@@ -99,4 +99,4 @@ When run on GitLab, this job will also push the report to [this repo](https://gi
 
 ## Note about emailing
 
-The sender, recipient, and API key are stored in environmental variables `$SENDER`, `$RECEIVER`, and `$SENDGRID_API_KEY` respectively. The GitLab CI script gets those variables from [this repo](https://gitlab.com/darumatic/xero-automation-uat/xero-configuration) before running the program. If these environmental variables aren't present, emails are suppressed anyway to prevent an exception.
+The sender, recipient, and API key are stored in environmental variables `$SENDER`, `$RECEIVER`, and `$SENDGRID_API_KEY` respectively. The GitLab CI script gets those variables from [this repo](https://gitlab.com/xero-automation-prod/xero-configuration) before running the program. If these environmental variables aren't present, emails are suppressed anyway to prevent an exception.

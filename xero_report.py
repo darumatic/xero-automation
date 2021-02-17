@@ -277,15 +277,10 @@ class XeroReport:
         short_project_name = project_name if not "-" in project_name else project_name.split("-")[1].strip()
         #short_project_name_with_suffix = "{} - ".format(short_project_name)
 
-        owner = ""
-        if short_project_name in self.OWNERS.keys():
-            owner = self.OWNERS[short_project_name]
-        else:
-            # Leave owner field blank if the skip owners flag is True, otherwise raise an exception
-            if self.skip_owners:
-                print(f"Owner not found for project {short_project_name}, leaving it blank")
-            else:
-                raise Exception("Owner for proj '{}' not found".format(short_project_name))
+        # Defaults to empty string if owner info isn't available
+        owner = self.OWNERS[short_project_name] if short_project_name in self.OWNERS.keys() else ""
+        if owner == "":
+            print(f"Owner info not found for {short_project_name}, leaving it blank")
 
         i_row = ROW_OFFSET
         for consultant in time_list['tasks']:

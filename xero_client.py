@@ -66,7 +66,7 @@ class XeroClient:
         response = None
         tries = 0
         while True:
-            print("Getting request...  {0}".format(url))
+            # print("Getting request...  {0}".format(url))
             if url in self.cache.keys():
                 print("Request is cached")
                 response = self.cache[url]
@@ -74,7 +74,7 @@ class XeroClient:
             r = requests.get(url, headers=self.headers)
             if r.status_code != 200:
                 error = r.text
-                too_many_requests = ("Max retries exceeded" in error) or ("rate%20limit%20exceeded" in error)
+                too_many_requests = ("Max retries exceeded" in error) or ("rate%20limit%20exceeded" in error) or r.status_code == 429
                 if self.MAX_TRIES > tries and too_many_requests:
                     print("Max retries error. Sleeping 10 seconds before retrying...")
                     time.sleep(10)

@@ -274,9 +274,9 @@ class XeroReport:
 
         # If there's a '-' in the project name, Use the substring after the '-' as the short project name
         # Otherwise, just use itself as the short project name
-        short_project_name = project_name if not "-" in project_name else project_name.split("-", 1)[1].strip()
+        short_project_name = project_name if not "-" in project_name else project_name.split("-")[1].strip()
         #short_project_name_with_suffix = "{} - ".format(short_project_name)
-        short_project_name = short_project_name.strip()
+
         owner = ""
         if short_project_name in self.OWNERS.keys():
             owner = self.OWNERS[short_project_name]

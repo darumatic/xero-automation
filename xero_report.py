@@ -426,25 +426,27 @@ class XeroReport:
                 reporter.backup_data(item["projectId"], item["name"])
                 reporter.generate_report(self.output, item["projectId"])
 
-                if self.suppress_email:
-                    print("Timesheet not sent because suppress flag is true")
-
-                else:
-                    attachment_paths = []
-                    attachments = os.listdir(self.output)
-                    # Gets all files in the output folder that end with .xls or .pdf
-                    for attachment in attachments:
-                        full_path = os.path.join(self.output, attachment)
-                        if attachment.endswith((".xls", ".pdf")) and not os.path.isdir(full_path):
-                            attachment_paths.append(full_path)
-
-                    if attachment_paths == []:
-                        raise Exception("Couldn't find any files to attach to email")
-
-                    XeroEmailSender.send_timesheet(attachment_paths)
-
         if not project_found:
             raise Exception(f"No project named {target_project} was found on Xero!")
+
+        if self.suppress_email:
+            print("Timesheet not sent because suppress flag is true")
+
+        else:
+            # Sends the generated reports as an email
+            attachment_paths = []
+            attachments = os.listdir(self.output)
+            # Gets all files in the output folder that end with .xls or .pdf
+            for attachment in attachments:
+                full_path = os.path.join(self.output, attachment)
+                if attachment.endswith((".xls", ".pdf")) and not os.path.isdir(full_path):
+                    attachment_paths.append(full_path)
+
+            if attachment_paths == []:
+                raise Exception("Couldn't find any files to attach to email")
+
+            XeroEmailSender.send_timesheet(attachment_paths)
+
 
     def validate_projects(self, reporter):
         # Assume we are working in UTC time

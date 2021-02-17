@@ -413,7 +413,7 @@ class XeroReport:
                 if target_project not in item['name']:
                     continue
 
-                # Replace spaces and slashes with underscores
+                # Replaces spaces and slashes with underscores
                 item['name'] = item['name'].replace(" ", "_").replace("/", "_")
 
                 project_found = True

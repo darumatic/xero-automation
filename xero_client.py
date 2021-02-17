@@ -66,7 +66,7 @@ class XeroClient:
         response = None
         tries = 0
         while True:
-            # print("Getting request...  {0}".format(url))
+            print("Getting request...  {0}".format(url))
             if url in self.cache.keys():
                 print("Request is cached")
                 response = self.cache[url]
@@ -81,7 +81,7 @@ class XeroClient:
                     tries = tries + 1
                     continue
                 else:
-                    raise Exception('failed to get request, response=' + error)
+                    raise Exception(f'failed to get request, code {r.status_code}, {r.text}')
             else:
                 response = r.json()
                 self.cache[url] = response

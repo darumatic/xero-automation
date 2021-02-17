@@ -272,7 +272,9 @@ class XeroReport:
 
         PO = '' if not 'PO' in project_name else project_name.split()[project_name.split().index('PO') + 1]
 
-        short_project_name = project_name if not "-" in project_name else project_name[:project_name.index("-")]
+        # If there's a '-' in the project name, Use the substring after the '-' as the short project name
+        # Otherwise, just use itself as the short project name
+        short_project_name = project_name if not "-" in project_name else project_name.split("-", 1)[1].strip()
         #short_project_name_with_suffix = "{} - ".format(short_project_name)
         short_project_name = short_project_name.strip()
         owner = ""

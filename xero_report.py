@@ -232,6 +232,7 @@ class XeroReport:
         #pdf
         html = self.generate_html(data)
         self.generate_pdf(html, os.path.join(output_dir, self.report_name(project_id)))
+
         #xls
         project_name = data['projectName'].replace("/", "_")
         output_file = os.path.join(output_dir, project_name.replace(" ", "_") + '.xls')
@@ -408,9 +409,12 @@ class XeroReport:
         project_found = False
         for items in self.get_all_projects():
             for item in items['items']:
-                # Only generate timesheet for projects named target_project
+                # Only generate timesheet for projects with target_project in it
                 if target_project not in item['name']:
                     continue
+
+                # Replace spaces and slashes with underscores
+                item['name'] = item['name'].replace(" ", "_").replace("/", "_")
 
                 project_found = True
                 print('Generate Xero report for project %s between %s %s to %s' % (

@@ -119,7 +119,10 @@ run-report:
     - git add .
     - git commit -m"update backup data"
     - git push
-  when: manual
+
+  rules:
+    - if: '$CI_RUN_GENERATE_TIMESHEET == "true"'
+    - when: manual
 
 run-close:
   image: $CI_REGISTRY_IMAGE:latest

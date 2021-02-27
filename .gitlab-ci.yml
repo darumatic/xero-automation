@@ -103,21 +103,21 @@ run-report:
     - git clone $XERO_REPORT_REPO_ADDRESS
     - cd $XERO_REPORT_REPO_NAME
     # Create backup data folder
-    - if [ ! -d backup-data  ];then
-    - mkdir backup-data
+    - if [ ! -d reports  ];then
+    - mkdir reports
     - fi
     # Create folder for this job's report
-    - TIME=$(date +%Y%m%d)"-"$(date +%H%M%S)
-    - mkdir backup-data/$TIME
+    - TIME=$(date +"%Y-%m-%dT%H:%M:%S%:z")
+    - mkdir reports/$TIME
 
     # Generate report and json data
     - python3 /app/xero_report.py report --client-id=$CLIENT_ID --client-secret=$CLIENT_SECRET --refresh-token=$REFRESH_TOKEN --tenant-id=$TENANT_ID
 
     # Push to target repo
-    - cp -Rf /app/out/ backup-data/$TIME
-    - cd backup-data/$TIME && ls
+    - cp -Rf /app/out/* reports/$TIME
+    - cd reports/$TIME && ls
     - git add .
-    - git commit -m"update backup data"
+    - git commit -m "Uploaded new reports at $TIME"
     - git push
 
   rules:

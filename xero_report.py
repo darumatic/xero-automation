@@ -444,7 +444,7 @@ class XeroReport:
             if attachment_paths == []:
                 raise Exception("Couldn't find any files to attach to email")
 
-            XeroEmailSender.send_timesheet(attachment_paths)
+            XeroEmailSender.send_timesheet(attachment_paths, self.timesheet_start_time.astimezone(self.local_timezone))
 
 
     def validate_projects(self, reporter):
@@ -539,7 +539,7 @@ class XeroReport:
             result = "There were a total of {0} errors in {1}.".format(amount_of_errors, self.filter)
             print(result)
             if not self.suppress_email:
-                XeroEmailSender.send_validation_report(result, errors)
+                XeroEmailSender.send_validation_report(result, datetime.datetime.now(self.local_timezone), errors)
             else:
                 print("Validation report not sent because suppress flag is true")
             return False

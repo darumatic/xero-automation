@@ -739,7 +739,7 @@ if __name__ == "__main__":
         reporter.close_previous_month_projects()
     elif command == "validate":
         amount_of_errors =  reporter.validate_projects(reporter)
-        print("The Validate function informed that there were {0} amount of errors \n" 
+        print("The Validate function informed that there were {0} errors. \n" 
               "Please check the logs above for more information.".format(amount_of_errors))
     else:
         print("Invalid command")

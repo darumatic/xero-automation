@@ -533,8 +533,6 @@ class XeroReport:
         if amount_of_errors == 0:
             result = "There are no errors in {0}. All tasks are validated successfully!!".format(self.filter)
             print(result)
-            return True
-
         else:
             result = "There were a total of {0} errors in {1}.".format(amount_of_errors, self.filter)
             print(result)
@@ -542,7 +540,7 @@ class XeroReport:
                 XeroEmailSender.send_validation_report(result, datetime.datetime.now(self.local_timezone), errors)
             else:
                 print("Validation report not sent because suppress flag is true")
-            return False
+        return amount_of_errors
 
     def backup_data(self, project_id, project_name):
         # Create current project's folder
@@ -740,12 +738,9 @@ if __name__ == "__main__":
     elif command == "close":
         reporter.close_previous_month_projects()
     elif command == "validate":
-        if not(reporter.validate_projects(reporter)):
-            print("The Validate function failed. Please check the logs above for more information. \n"
-                  "If any particular task item should be skipped, please add its id to the {0} \n"
-                  " environment variable following this format: {1}".format("VALIDATION_EXCEPTIONS",
-                                                                            "['task_id1', 'task_id1']"))
-            sys.exit(1)
+        amount_of_errors =  reporter.validate_projects(reporter)
+        print("The Validate function informed that there were {0} amount of errors \n" 
+              "Please check the logs above for more information.".format(amount_of_errors))
     else:
         print("Invalid command")
         sys.exit(2)

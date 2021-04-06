@@ -142,9 +142,9 @@ class XeroClient:
 
     def user(self, user_id):
         url = 'https://api.xero.com/projects.xro/2.0/projectsusers'
-        users = self.get_items(url, one_page=True)
+        users = self.get_items(url, one_page=False)
 
-        for user in users['items']:
+        for user in users[0]['items']:
             if user['userId'] == user_id:
                 return user
         raise Exception('failed to load user, id=' + user_id)

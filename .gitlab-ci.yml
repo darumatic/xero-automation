@@ -65,7 +65,7 @@ run-validate:
     - export GITLAB_PRIVATE_TOKEN=$GITLAB_PRIVATE_TOKEN && export CI_PROJECT_ID=$CI_PROJECT_ID
     - python3 /app/xero_report.py validate --client-id=$CLIENT_ID --client-secret=$CLIENT_SECRET --refresh-token=$REFRESH_TOKEN --tenant-id=$TENANT_ID
 
-run-report:
+run-report-monthly:
   image: $CI_REGISTRY_IMAGE:latest
   stage: tasks
   before_script:
@@ -110,7 +110,7 @@ run-report:
     - mkdir reports/$TIME
 
     # Generate report and json data
-    - python3 /app/xero_report.py report --client-id=$CLIENT_ID --client-secret=$CLIENT_SECRET --refresh-token=$REFRESH_TOKEN --tenant-id=$TENANT_ID
+    - python3 /app/xero_report.py report-month --client-id=$CLIENT_ID --client-secret=$CLIENT_SECRET --refresh-token=$REFRESH_TOKEN --tenant-id=$TENANT_ID
 
     # Push to target repo
     - cp -Rf /app/out/* reports/$TIME
@@ -123,6 +123,63 @@ run-report:
     - if: '$CI_RUN_GENERATE_TIMESHEET == "true"'
     - when: manual
 
+run-report-po:
+  image: $CI_REGISTRY_IMAGE:latest
+  stage: tasks
+  before_script:
+    - apk add --no-cache --update openssh-client git unzip sshpass rsync
+    - eval $(ssh-agent -s)
+
+    # Adding ssh keys is done in script
+    # - echo "$XERO_REPORT_REPO_SSH_KEY" | tr -d '\r' | ssh-add - > /dev/null
+    # - echo "$CONFIG_REPO_SSHKEY" | tr -d '\r' | ssh-add - > /dev/null
+
+    - mkdir -p ~/.ssh
+    - chmod 700 ~/.ssh
+
+    - ssh-keyscan gitlab.com >> ~/.ssh/known_hosts
+    - chmod 644 ~/.ssh/known_hosts
+
+    - git config --global user.email $XERO_REPORT_REPO_USERMAIL
+    - git config --global user.name $XERO_REPORT_REPO_USERNAME
+  script:
+    # Pull configuration repo
+    - echo "$CONFIG_REPO_SSHKEY" | tr -d '\r' | ssh-add - > /dev/null
+    - echo "Pulling configration repo"
+    - git clone $CONFIG_REPO
+    - cp -Rf  $CONFIG_REPO_NAME/variables /app
+    - source /app/variables/email_sender.env
+
+    # Delete the first identity
+    - ssh-add -D
+
+    - export GITLAB_PRIVATE_TOKEN=$GITLAB_PRIVATE_TOKEN && export CI_PROJECT_ID=$CI_PROJECT_ID
+    # Pull report repo
+    - echo "$XERO_REPORT_REPO_SSH_KEY" | tr -d '\r' | ssh-add - > /dev/null
+    - echo "Pulling external repo into build"
+    - git clone $XERO_REPORT_REPO_ADDRESS
+    - cd $XERO_REPORT_REPO_NAME
+    # Create backup data folder
+    - if [ ! -d reports  ];then
+    - mkdir reports
+    - fi
+    # Create folder for this job's report
+    - TIME=$(date +"%Y-%m-%dT%H:%M:%S%:z")
+    - mkdir reports/$TIME
+
+    # Generate report and json data
+    - python3 /app/xero_report.py report-po --client-id=$CLIENT_ID --client-secret=$CLIENT_SECRET --refresh-token=$REFRESH_TOKEN --tenant-id=$TENANT_ID --start-time=$START_TIME --end-time=$END_TIME --po=$PO
+
+    # Push to target repo
+    - cp -Rf /app/out/* reports/$TIME
+    - cd reports/$TIME && ls
+    - git add .
+    - git commit -m "Uploaded new reports at $TIME"
+    - git push
+
+  rules:
+    - when: manual
+
 run-close:
   image: $CI_REGISTRY_IMAGE:latest
   stage: tasks
@@ -133,3 +190,25 @@ run-close:
   rules:
     - if: '$CI_RUN_CLOSE == "true"'
     - when: manual
+
+
+# run-spreadsheet:
+#   image: $CI_REGISTRY_IMAGE:latest
+#   stage: tasks
+#   # only:
+#   #   - schedules
+#   script:
+#     # Pull configuration repo
+#     - echo "$CONFIG_REPO_SSHKEY" | tr -d '\r' | ssh-add - > /dev/null
+#     - echo "Pulling configration repo"
+#     - git clone $CONFIG_REPO
+#     - cp -Rf  $CONFIG_REPO_NAME/variables /app
+
+#     # Set spreadsheet variables from config repo
+#     - source /app/variables/spreadsheet.env
+
+#     - export GITLAB_PRIVATE_TOKEN=$GITLAB_PRIVATE_TOKEN && export CI_PROJECT_ID=$CI_PROJECT_ID
+#     - python3 /app/xero_spread_sheet_report.py --client-id=$CLIENT_ID --client-secret=$CLIENT_SECRET --refresh-token=$REFRESH_TOKEN --tenant-id=$TENANT_ID --credential=$GOOGLE_CREDENTIAL --url=$GOOGLE_URL
+
+#   rules:
+#     - when: manual

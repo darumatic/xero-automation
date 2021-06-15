@@ -11,7 +11,7 @@ from requests_oauthlib import OAuth2Session
 os.environ['OAUTHLIB_INSECURE_TRANSPORT'] = '1'
 PORT_NUMBER = 3000
 REDIRECT_URI = 'http://localhost:' + str(PORT_NUMBER)
-SCOPE = ['offline_access', 'projects', 'openid', 'accounting.contacts', 'accounting.transactions', 'email', 'profile', ]
+SCOPE = ['offline_access', 'projects', 'openid', 'accounting.contacts', 'accounting.transactions', 'email', 'profile', 'accounting.reports.read']
 
 client_id = ''
 client_secret = ''

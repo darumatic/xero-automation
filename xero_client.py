@@ -66,7 +66,11 @@ class XeroClient:
         response = None
         tries = 0
         while True:
-            # print("Getting request...  {0}".format(url))
+
+            # print(f"Getting request:")
+            # print(f"url: {url}")
+            # print(f"headers: {self.headers}")
+
             if url in self.cache.keys():
                 print("Request is cached")
                 response = self.cache[url]

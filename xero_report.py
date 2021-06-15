@@ -5,10 +5,10 @@ import calendar
 import datetime
 import json
 import os
-import pprint
 import random
 import shutil
 import sys
+from pprint import pprint
 
 import dateutil.parser
 import pdfkit
@@ -21,8 +21,14 @@ from xero_email_sender import XeroEmailSender
 
 DEFAULT_TIMEZONE = pytz.timezone("Australia/Sydney")
 
+# This object is timezone aware and defaults to DEFAULT_TIMEZONE, it doesn't take into account $LOCAL_TIMEZONE
+DARUMATIC_START_TIME = datetime.datetime(2017, 2, 1, tzinfo=DEFAULT_TIMEZONE).astimezone(pytz.utc)
+
 class XeroReport:
     def __init__(self, args, command):
+        if command not in set(["validate", "report-month", "report-po", "close"]):
+            raise Exception(f"{command} isn't a valid command")
+
         self.command = command
         self.local_timezone = self._get_local_time_zone()
         # self.target_month_string is used for report generation
@@ -31,13 +37,16 @@ class XeroReport:
         self.MAX_DURATION = 12.0
         self.CURRENT_DIRECTORY = os.path.dirname(os.path.abspath(__file__))
 
-        # These 2 times are used by the validate command as it defaults to the current month
-        self.start_time = None
-        self.end_time = None
 
-        # These 2 times are used by the report command as it defaults to the previous month
-        self.timesheet_start_time = self._get_time_sheet_start_time()
-        self.timesheet_end_time = self._get_time_sheet_end_time()
+        # Times used by validate and close
+        self.validate_close_start_time = None
+        self.validate_close_end_time = None
+        self.add_project_times(args.start_time, args.end_time)
+
+        # Times used by timesheet generation (both monthly and by PO)
+        self.timesheet_start_time = self._get_time_sheet_start_time(args.start_time)
+        self.timesheet_end_time = self._get_time_sheet_end_time(args.end_time)
+
 
         self.client_id = args.client_id
         self.client_secret = args.client_secret
@@ -49,13 +58,15 @@ class XeroReport:
         self.output = args.output
         self.skip_owners = args.skip_owners
 
+        # For generating reports based on PO
+        self.po = args.po if self.command == "report-po" else None
+
         self.suppress_email = args.suppress_email
         if not args.suppress_email and not self._email_env_var_present():
             # Override and suppress anyway if none of the required env vars are present
             self.suppress_email = True
             print("Email environmental variables missing, suppressing emails anyway")
 
-        self.add_project_times(args.start_time, args.end_time)
 
         print("CI_PROJECT_ID=%s", os.getenv('CI_PROJECT_ID', None))
         self.xero_client = XeroClient(self.client_id, self.client_secret, self.tenant_id, self.refresh_token)
@@ -89,8 +100,33 @@ class XeroReport:
             holidays = open(NSW_HOLIDAYS_FILE).read().strip()
             self.NSW_HOLIDAYS = eval(holidays)
 
+        # Date sanity checks
+        if (
+            (self.command == "report-month" or self.command == "report-po")
+            and (not (self.timesheet_start_time < self.timesheet_end_time))
+        ):
+            raise Exception("Timesheet end time is earlier than timesheet start time")
+
+        if (
+            (self.command == "validate" or self.command == "close")
+            and (not (self.validate_close_start_time < self.validate_close_end_time))
+        ):
+            raise Exception("validate/close end time is earlier than validate/close start time")
+
+        print(f"validate_close_start_time is {self.validate_close_start_time}")
+        print(f"validate_close_end_time is {self.validate_close_end_time}")
+        print(f"time_sheet_start_time is {self.timesheet_start_time}")
+        print(f"time_sheet_end_time is {self.timesheet_end_time}")
+
     def add_project_times(self, start_time, end_time):
+        """
+        Sets the time ranges used by the validate and close function
+        """
         # REVIEW Potential bug: time entries that are logged the second between 23:59:59 and 00:00:00 between the end and start of a new month may not be included.
+
+        if self.command == "report-month" or self.command == "report-po":
+            # Timesheet generation shouldn't use self.start_time and self.end_time
+            return
 
         local_now = datetime.datetime.now(self.local_timezone)
         # self.filter is the current month
@@ -104,14 +140,14 @@ class XeroReport:
             # Input is in local time
             start = datetime.datetime.strptime(start_time, "%Y-%m-%d")
             # Gives it timezone information and normalise to UTC
-            self.start_time = self.local_timezone.localize(start).astimezone(pytz.utc)
+            self.validate_close_start_time = self.local_timezone.localize(start).astimezone(pytz.utc)
 
-        if not self.start_time:
+        if not self.validate_close_start_time:
             # self.start_time hasn't been set
             # Default to the start of the current month
             start = datetime.datetime.strptime(self.filter, "%Y%m")
             # Gives it timezone information and normalise to UTC
-            self.start_time = self.local_timezone.localize(start).astimezone(pytz.utc)
+            self.validate_close_start_time = self.local_timezone.localize(start).astimezone(pytz.utc)
 
         if end_time:
             # end_time has been passed in
@@ -122,9 +158,9 @@ class XeroReport:
             # Set it to the end of the day (in its local timezone)
             end = end.replace(hour=23, minute=59, second=59)
             # Normalise it to UTC
-            self.end_time = end.astimezone(pytz.utc)
+            self.validate_close_end_time = end.astimezone(pytz.utc)
 
-        if not self.end_time:
+        if not self.validate_close_end_time:
             # self.end_time hasn't been set
             month_last_day = calendar.monthrange(local_now.year, local_now.month)[1]
             end = datetime.datetime.strptime(self.filter, "%Y%m")
@@ -134,7 +170,7 @@ class XeroReport:
             # Defaults to the end of the current month
             end = end.replace(day=month_last_day, hour=23, minute=59, second=59)
             # Normalise it to UTC
-            self.end_time = end.astimezone(pytz.utc)
+            self.validate_close_end_time = end.astimezone(pytz.utc)
 
     def validate_month_range(self, output_dir, project_id, start_month, end_month):
         VALIDATION_ERROR = "Validation Error: "
@@ -159,14 +195,14 @@ class XeroReport:
 
         return errors
 
-    def load_data(self, project_id):
+    def load_data(self, project_id) -> dict:
         xero_client = self.xero_client
 
         # Use different times depending on which command
-        if self.command == "report":
+        if self.command == "report-month" or self.command == "report-po":
             time_list = xero_client.time(project_id, self.timesheet_start_time, self.timesheet_end_time)
         else:
-            time_list = xero_client.time(project_id, self.start_time, self.end_time)
+            time_list = xero_client.time(project_id, self.validate_close_start_time, self.validate_close_end_time)
 
         project = xero_client.project(project_id)
 
@@ -186,6 +222,7 @@ class XeroReport:
         for user_id, user_time_list in tasks.items():
             user = self.user(user_id)
             user_total_duration = 0
+            # items is a list of user_time_item
             items = []
 
             for user_time_item in user_time_list:
@@ -208,16 +245,18 @@ class XeroReport:
             'totalHours': total_hours,
             'totalDays': self.round_hours_to_days(total_hours),
             'projectName': project['name'],
-            'tasks': user_tasks
+            'tasks': user_tasks,
+            'startTime': None, # Set below
+            'endTime': None # Set below
         }
 
-        if self.command == "report":
+        if self.command == "report-month" or self.command == "report-po":
             return_dict["startTime"] = self.timesheet_start_time.astimezone(self.local_timezone).strftime("%d %b %Y")
             return_dict["endTime"] = self.timesheet_end_time.astimezone(self.local_timezone).strftime("%d %b %Y")
 
         else:
-            return_dict["startTime"] = self.start_time.astimezone(self.local_timezone).strftime("%d %b %Y")
-            return_dict["endTime"] = self.end_time.astimezone(self.local_timezone).strftime("%d %b %Y")
+            return_dict["startTime"] = self.validate_close_start_time.astimezone(self.local_timezone).strftime("%d %b %Y")
+            return_dict["endTime"] = self.validate_close_end_time.astimezone(self.local_timezone).strftime("%d %b %Y")
 
             # return_dict["startTime"] = (self.start_time + self.SYDNEY_TIME_OFFSET).strftime('%d %b %Y')
             # return_dict["endTime"] = (self.end_time + self.SYDNEY_TIME_OFFSET).strftime('%d %b %Y')
@@ -225,13 +264,60 @@ class XeroReport:
         return return_dict
 
 
-    def generate_report(self, output_dir, project_id):
-        print('Generate report, project id=%s' % project_id)
-        data = self.load_data(project_id)
+    def generate_report(self, output_dir, project_ids: list):
+        """
+        Generates PDF and XLS timesheet
 
+        PO Mode:
+        - `project_ids` is a list of relevant project IDs
+
+        Monthly Mode:
+        - `project_ids` is a list with 1 element
+        - The first element is the project ID that the report should be generated for
+        """
+
+        if self.command == "report-month":
+            data = self.load_data(project_ids[0])
+
+        elif self.command == "report-po":
+            # Merges the data to fit it into the HTML template
+            data = {
+                "totalHours": 0, # Set below
+                "totalDays": None, # Set below
+                "projectName": "PO " + str(self.po),
+                "tasks": [], # Set below
+                "startTime": self.timesheet_start_time.astimezone(self.local_timezone).strftime("%d %b %Y"),
+                "endTime": self.timesheet_end_time.astimezone(self.local_timezone).strftime("%d %b %Y")
+            }
+            for project_id in project_ids:
+                print('Generate report by PO, project id=%s' % project_id)
+                current_entry = self.load_data(project_id)
+
+                # The variable names are confusing because the template is meant for monthly timesheets, and it's been adapted it to timesheet by PO
+                project_tasks = {
+                    "userTotalDuration": 0,
+                    "userName": current_entry["projectName"],
+                    "items": []
+                }
+
+                for user_task in current_entry["tasks"]:
+                    project_tasks["items"].extend(user_task["items"])
+                    for item in user_task["items"]:
+                        project_tasks["userTotalDuration"] += item["duration"]
+
+                data["totalHours"] += project_tasks["userTotalDuration"]
+                data["tasks"].append(project_tasks)
+
+            data["totalDays"] = self.round_hours_to_days(data["totalHours"])
+
+            # print("Dictionary being sent to template:")
+            # pprint(data)
+
+        else:
+            raise Exception("Invalid command for generate_report()")
         #pdf
         html = self.generate_html(data)
-        self.generate_pdf(html, os.path.join(output_dir, self.report_name(project_id)))
+        self.generate_pdf(html, os.path.join(output_dir, self.report_name(project_ids[0])))
 
         #xls
         project_name = data['projectName'].replace("/", "_")
@@ -300,25 +386,31 @@ class XeroReport:
         print("Saving workbook in {}".format(output_file))
 
     def report_name(self, project_id):
-        project = self.xero_client.project(project_id)
-        project_name = project['name']
-        report_name = ''
-        skip = False
-        for c in project_name:
-            if c.isalpha() or c.isdigit():
-                report_name += c.lower()
-                skip = False
-            else:
-                if not skip:
-                    report_name += '_'
-                    skip = True
+        if self.command == "report-month":
+            project = self.xero_client.project(project_id)
+            project_name = project['name']
+            report_name = ''
+            skip = False
+            for c in project_name:
+                if c.isalpha() or c.isdigit():
+                    report_name += c.lower()
+                    skip = False
+                else:
+                    if not skip:
+                        report_name += '_'
+                        skip = True
 
-        report_name += '_'
-        report_name += self.timesheet_start_time.astimezone(self.local_timezone).strftime('%d-%b-%Y').lower()
-        report_name += '-'
-        report_name += self.timesheet_end_time.astimezone(self.local_timezone).strftime('%d-%b-%Y').lower()
-        report_name += '.' + ''.join(random.sample('0123456789', 3))
-        report_name += '.pdf'
+            report_name += '_'
+            report_name += self.timesheet_start_time.astimezone(self.local_timezone).strftime('%d-%b-%Y').lower()
+            report_name += '-'
+            report_name += self.timesheet_end_time.astimezone(self.local_timezone).strftime('%d-%b-%Y').lower()
+            report_name += '.' + ''.join(random.sample('0123456789', 3))
+            report_name += '.pdf'
+
+        elif self.command == "report-po":
+            # Generate timesheet by PO case
+            report_name = f"po_{str(self.po)}_timesheet_ending_{self.timesheet_end_time.astimezone(self.local_timezone).strftime('%d-%b-%Y')}.pdf"
+
         return report_name
 
     def task_item(self, time, project_id):
@@ -385,18 +477,30 @@ class XeroReport:
                                                                                       item["status"],
                                                                                       item["contactId"]))
 
-    def create_monthly_time_sheets(self, reporter):
+    def create_monthly_time_sheets(self):
         if os.path.exists(self.output):
             shutil.rmtree(self.output)
             os.makedirs(self.output)
         else:
             os.makedirs(self.output)
 
-        # This should be last month unless otherwise specified
-        # E.g. when run in January 2021, target_project is "202012"
-        # E.g. when run in March 2021, target_project is "202102"
-        # This can be changed with $PROJECT_NAME
-        target_project = self.target_month_string
+        if self.command == "report-month":
+            # This should be last month unless otherwise specified
+            # E.g. when run in January 2021, target_project is "202012"
+            # E.g. when run in March 2021, target_project is "202102"
+            # This can be changed with $PROJECT_NAME
+            target_project = self.target_month_string
+
+        elif self.command == "report-po":
+            # For generating timesheet by po
+            if not self.po:
+                raise Exception("Can't generate report by PO, no PO given.")
+
+            target_project = "PO " + str(self.po)
+
+        else:
+            raise Exception(f"{self.command} isn't a valid command for generating timesheets")
+
         print(f"Creating timesheet for projects named {target_project}")
 
         # Create active projects json file
@@ -407,6 +511,9 @@ class XeroReport:
 
         # Flag to check whether there was a project with name target_project
         project_found = False
+        # For report generation by PO
+        projects_ids_with_target_po = []
+
         for items in self.get_all_projects():
             for item in items['items']:
                 # Only generate timesheet for projects with target_project in it
@@ -418,15 +525,24 @@ class XeroReport:
 
                 project_found = True
                 print('Generate Xero report for project %s between %s %s to %s' % (
-                    item["projectId"], self.start_time, self.end_time, self.output))
+                    item["projectId"], self.timesheet_start_time, self.timesheet_end_time, self.output))
                 print("Name: {0}, ProjectID: {1}, Status: {2}, ContactId: {3}".format(item["name"], item["projectId"],
                                                                                       item["status"],
                                                                                       item["contactId"]))
-                reporter.backup_data(item["projectId"], item["name"])
-                reporter.generate_report(self.output, item["projectId"])
+                self.backup_data(item["projectId"], item["name"])
+
+                if self.command == "report-month":
+                    # Run generate report here when using report-month
+                    self.generate_report(self.output, [item["projectId"]])
+                else:
+                    projects_ids_with_target_po.append(item["projectId"])
 
         if not project_found:
             raise Exception(f"No project named {target_project} was found on Xero!")
+
+        if self.command == "report-po":
+            # Run generate report here when using report-po
+            self.generate_report(self.output, projects_ids_with_target_po)
 
         if self.suppress_email:
             print("Timesheet not sent because suppress flag is true")
@@ -444,19 +560,24 @@ class XeroReport:
             if attachment_paths == []:
                 raise Exception("Couldn't find any files to attach to email")
 
-            XeroEmailSender.send_timesheet(attachment_paths, self.timesheet_start_time.astimezone(self.local_timezone))
+            # Changes the email title
+            if self.command == "report-month":
+                XeroEmailSender.send_timesheet(attachment_paths,    self.timesheet_start_time.astimezone(self.local_timezone), "month")
+
+            else:
+                XeroEmailSender.send_timesheet(attachment_paths, self.timesheet_end_time.astimezone(self.local_timezone), "po", po=self.po)
 
 
     def validate_projects(self, reporter):
         # Assume we are working in UTC time
-        month_start = self.start_time
-        month_end = self.end_time
+        month_start = self.validate_close_start_time
+        month_end = self.validate_close_end_time
         DARUMATIC_INIT_TIME = '2017-02-20'
         start_validation_time = DARUMATIC_INIT_TIME
         self.add_project_times(start_validation_time, None)
-        end_validation_time = self.start_time + datetime.timedelta(days=5000)
+        end_validation_time = self.validate_close_start_time + datetime.timedelta(days=5000)
         self.add_project_times(None, end_validation_time.strftime('%Y-%m-%d'))
-        start_validation_time, end_validation_time = self.start_time, self.end_time
+        start_validation_time, end_validation_time = self.validate_close_start_time, self.validate_close_end_time
 
         print('Validating Active Projects..')
         print("Start Validation Time: {0} \n"
@@ -469,13 +590,14 @@ class XeroReport:
             end_validation_time.astimezone(self.local_timezone),
             month_start.astimezone(self.local_timezone),
             month_end.astimezone(self.local_timezone),
-            self.start_time.astimezone(self.local_timezone),
-            self.end_time.astimezone(self.local_timezone)
+            self.validate_close_start_time.astimezone(self.local_timezone),
+            self.validate_close_end_time.astimezone(self.local_timezone)
         ))
         errors = {}
         amount_of_errors = 0
 
         for items in self.get_all_projects():
+            pprint(items)
             for item in items['items']:
                 # Check active projects timestamp in project name'
                 if self.filter not in item['name']:
@@ -528,7 +650,7 @@ class XeroReport:
 
         print("*" * 80)
         print("List of Validation errors")
-        pprint.pprint(errors)
+        pprint(errors)
         print("*" * 80)
         if amount_of_errors == 0:
             result = "There are no errors in {0}. All tasks are validated successfully!!".format(self.filter)
@@ -548,7 +670,7 @@ class XeroReport:
         os.mkdir(project_folder)
         # Create time entry file
         xero_client = self.xero_client
-        time_list = xero_client.time(project_id, self.start_time, self.end_time)
+        time_list = xero_client.time(project_id, self.timesheet_start_time, self.timesheet_end_time)
         time_list_file = open(project_folder+"/time_entries.json", "w+")
         json.dump(time_list, time_list_file)
         time_list_file.close()
@@ -668,22 +790,80 @@ class XeroReport:
         return f"{year}{month:02d}"
 
 
-    def _get_time_sheet_start_time(self) -> datetime.datetime:
-        target_month = datetime.datetime.strptime(self.target_month_string, "%Y%m")
-        # This datetime object is still in Sydney time, but is timezone aware
-        localised_datetime_object = self.local_timezone.localize(target_month)
-        # Turn it back into UTC for compatability with existing code
-        return localised_datetime_object.astimezone(pytz.utc)
+    def _get_time_sheet_start_time(self, command_line_time: str) -> datetime.datetime:
+        """
+        Sets the time ranges for generating report
+
+        `report-month`
+        - Uses `self.target_month_string`
+        - Returns the first day of that month
+
+        `report-po`
+        - The date ranges for `report-po` were given via command line arguments
+        - Parse the date given by the command line
+        - If no start time was given via command line arguments, it returns `DARUMATIC_START_TIME`
+        """
+        if self.command == "report-month":
+            target_month = datetime.datetime.strptime(self.target_month_string, "%Y%m")
+            # This datetime object is still in Sydney time, but is timezone aware
+            localised_datetime_object = self.local_timezone.localize(target_month)
+
+            # Turn it back into UTC for compatability with existing code
+            return localised_datetime_object.astimezone(pytz.utc)
+
+        elif self.command == "report-po":
+            if command_line_time:
+                # Start time was given via the command line
+                # Parse the string
+                start = datetime.datetime.strptime(command_line_time, "%Y-%m-%d")
+                # Localise it with the self.local_timezone
+                start = self.local_timezone.localize(start)
+                # Convert it back to UTC for compatability
+                start = start.astimezone(pytz.utc)
+
+            else:
+                # Defaults to Darumatic start time if doing report-po and no start time was provided
+                start = DARUMATIC_START_TIME
+                print("Running report-po but no start time provided, defaulting to Darumatic start time")
+
+            return start
 
 
-    def _get_time_sheet_end_time(self) -> datetime.datetime:
-        target_month = datetime.datetime.strptime(self.target_month_string, "%Y%m")
-        month_last_day = calendar.monthrange(target_month.year, target_month.month)[1]
-        # This datetime object is still in Sydney time, but is timezone aware
-        # Day is set to last day of the month
-        localised_datetime_object = self.local_timezone.localize(target_month.replace(day=month_last_day, hour=23, minute=59, second=59))
-        # Turn it back into UTC for compatability with existing code
-        return localised_datetime_object.astimezone(pytz.utc)
+
+    def _get_time_sheet_end_time(self, command_line_time: str) -> datetime.datetime:
+        """
+        Same as `self._get_time_sheet_start_time` but for end time
+
+        When running `report-po` and no end time was given via command line arguments, it returns now
+        """
+        if self.command == "report-month":
+            target_month = datetime.datetime.strptime(self.target_month_string, "%Y%m")
+            month_last_day = calendar.monthrange(target_month.year, target_month.month)[1]
+            # This datetime object is still in Sydney time, but is timezone aware
+            # Day is set to last day of the month
+            localised_datetime_object = self.local_timezone.localize(target_month.replace(day=month_last_day, hour=23, minute=59, second=59))
+
+            # Turn it back into UTC for compatability with existing code
+            return localised_datetime_object.astimezone(pytz.utc)
+
+        elif self.command == "report-po":
+            if command_line_time:
+                # End time was given via the command line
+                # Parse the string
+                end = datetime.datetime.strptime(command_line_time, "%Y-%m-%d")
+                # Localise it with self.local_timezone
+                end = self.local_timezone.localize(end)
+                # Convert it back to UTC for compatability
+                end = end.astimezone(pytz.utc)
+
+            else:
+                # Defaults to now if doing report-po and no end time was provided
+                # Localises utcnow with the local timezone and converts it back to UTC for compatibility
+                end = self.local_timezone.localize(datetime.datetime.utcnow()).astimezone(pytz.utc)
+                print("Running report-po but no end time provided, defaulting to now")
+
+            return end
+
 
 
     def _get_local_time_zone(self):
@@ -723,23 +903,27 @@ if __name__ == "__main__":
     parser.add_argument('--start-time', type=str, required=False, default=None)
     parser.add_argument('--end-time', type=str, required=False, default=None)
     parser.add_argument('--output', type=str, default=os.path.join(current_dir, "out"))
+    parser.add_argument('--po', type=int, required=False, default=None)
 
     # Optional argument to skip loading in owners data
     parser.add_argument('--skip-owners', type=bool, default=False)
     # Optional argument to not send emails
     parser.add_argument('--suppress-email', type=bool, default=False)
 
+
     command = sys.argv[1]
     args = parser.parse_args(sys.argv[2:])
     reporter = XeroReport(args, command)
 
-    if command == "report":
-        reporter.create_monthly_time_sheets(reporter)
+    if command == "report-month":
+        reporter.create_monthly_time_sheets()
+    elif command == "report-po":
+        reporter.create_monthly_time_sheets()
     elif command == "close":
         reporter.close_previous_month_projects()
     elif command == "validate":
-        amount_of_errors =  reporter.validate_projects(reporter)
-        print("The Validate function informed that there were {0} errors. \n" 
+        amount_of_errors = reporter.validate_projects(reporter)
+        print("The Validate function informed that there were {0} errors. \n"
               "Please check the logs above for more information.".format(amount_of_errors))
     else:
         print("Invalid command")

@@ -21,3 +21,5 @@ publickey.cer
 .owners
 /variables/
 .*
+.venv
+.vscode

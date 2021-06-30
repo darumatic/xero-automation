@@ -18,4 +18,4 @@ COPY ["xero_client.py", "xero_report.py", "report.html","xero_email_sender.py", 
 WORKDIR /app
 RUN apk add --no-cache \
     libgcc libstdc++ libx11 glib libxrender libxext libintl \
-    ttf-dejavu ttf-droid ttf-freefont ttf-liberation ttf-ubuntu-font-family wkhtmltopdf
+    ttf-dejavu ttf-droid ttf-freefont ttf-liberation wkhtmltopdf

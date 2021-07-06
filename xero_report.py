@@ -494,7 +494,7 @@ class XeroReport:
         elif self.command == "report-po":
             # For generating timesheet by po
             if not self.po:
-                raise Exception("Can't generate report by PO, no PO given.")
+                raise Exception("Can't generate report by PO, no PO given. Please setup the PO environment variable")
 
             target_project = "PO " + str(self.po)
 
@@ -526,23 +526,25 @@ class XeroReport:
                 project_found = True
                 print('Generate Xero report for project %s between %s %s to %s' % (
                     item["projectId"], self.timesheet_start_time, self.timesheet_end_time, self.output))
-                print("Name: {0}, ProjectID: {1}, Status: {2}, ContactId: {3}".format(item["name"], item["projectId"],
+                print("Name: {0}, ProjectID: {1}, Status: {2}, ContactId: {3}".format(item["name"],
+                                                                                      item["projectId"],
                                                                                       item["status"],
                                                                                       item["contactId"]))
                 self.backup_data(item["projectId"], item["name"])
 
-                if self.command == "report-month":
-                    # Run generate report here when using report-month
-                    self.generate_report(self.output, [item["projectId"]])
-                else:
-                    projects_ids_with_target_po.append(item["projectId"])
+                self.generate_report(self.output, [item["projectId"]])
+                #if self.command == "report-month":
+                #    # Run generate report here when using report-month
+                #    self.generate_report(self.output, [item["projectId"]])
+                #else:
+                #    projects_ids_with_target_po.append(item["projectId"])
 
         if not project_found:
             raise Exception(f"No project named {target_project} was found on Xero!")
 
-        if self.command == "report-po":
-            # Run generate report here when using report-po
-            self.generate_report(self.output, projects_ids_with_target_po)
+        # if self.command == "report-po":
+        #     # Run generate report here when using report-po
+        #     self.generate_report(self.output, projects_ids_with_target_po)
 
         if self.suppress_email:
             print("Timesheet not sent because suppress flag is true")

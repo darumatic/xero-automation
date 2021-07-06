@@ -276,45 +276,47 @@ class XeroReport:
         - The first element is the project ID that the report should be generated for
         """
 
-        if self.command == "report-month":
-            data = self.load_data(project_ids[0])
+        data = self.load_data(project_ids[0])
 
-        elif self.command == "report-po":
-            # Merges the data to fit it into the HTML template
-            data = {
-                "totalHours": 0, # Set below
-                "totalDays": None, # Set below
-                "projectName": "PO " + str(self.po),
-                "tasks": [], # Set below
-                "startTime": self.timesheet_start_time.astimezone(self.local_timezone).strftime("%d %b %Y"),
-                "endTime": self.timesheet_end_time.astimezone(self.local_timezone).strftime("%d %b %Y")
-            }
-            for project_id in project_ids:
-                print('Generate report by PO, project id=%s' % project_id)
-                current_entry = self.load_data(project_id)
-
-                # The variable names are confusing because the template is meant for monthly timesheets, and it's been adapted it to timesheet by PO
-                project_tasks = {
-                    "userTotalDuration": 0,
-                    "userName": current_entry["projectName"],
-                    "items": []
-                }
-
-                for user_task in current_entry["tasks"]:
-                    project_tasks["items"].extend(user_task["items"])
-                    for item in user_task["items"]:
-                        project_tasks["userTotalDuration"] += item["duration"]
-
-                data["totalHours"] += project_tasks["userTotalDuration"]
-                data["tasks"].append(project_tasks)
-
-            data["totalDays"] = self.round_hours_to_days(data["totalHours"])
+        # if self.command == "report-month":
+        #     data = self.load_data(project_ids[0])
+        #
+        # elif self.command == "report-po":
+        #     # Merges the data to fit it into the HTML template
+        #     data = {
+        #         "totalHours": 0, # Set below
+        #         "totalDays": None, # Set below
+        #         "projectName": "PO " + str(self.po),
+        #         "tasks": [], # Set below
+        #         "startTime": self.timesheet_start_time.astimezone(self.local_timezone).strftime("%d %b %Y"),
+        #         "endTime": self.timesheet_end_time.astimezone(self.local_timezone).strftime("%d %b %Y")
+        #     }
+        #     for project_id in project_ids:
+        #         print('Generate report by PO, project id=%s' % project_id)
+        #         current_entry = self.load_data(project_id)
+        #
+        #         # The variable names are confusing because the template is meant for monthly timesheets, and it's been adapted it to timesheet by PO
+        #         project_tasks = {
+        #             "userTotalDuration": 0,
+        #             "userName": current_entry["projectName"],
+        #             "items": []
+        #         }
+        #
+        #         for user_task in current_entry["tasks"]:
+        #             project_tasks["items"].extend(user_task["items"])
+        #             for item in user_task["items"]:
+        #                 project_tasks["userTotalDuration"] += item["duration"]
+        #
+        #         data["totalHours"] += project_tasks["userTotalDuration"]
+        #         data["tasks"].append(project_tasks)
+        #
+        #     data["totalDays"] = self.round_hours_to_days(data["totalHours"])
 
             # print("Dictionary being sent to template:")
             # pprint(data)
 
-        else:
-            raise Exception("Invalid command for generate_report()")
+        # else:
+        #     raise Exception("Invalid command for generate_report()")
         #pdf
         html = self.generate_html(data)
         self.generate_pdf(html, os.path.join(output_dir, self.report_name(project_ids[0])))
@@ -533,11 +535,11 @@ class XeroReport:
                 self.backup_data(item["projectId"], item["name"])
 
                 self.generate_report(self.output, [item["projectId"]])
-                #if self.command == "report-month":
-                #    # Run generate report here when using report-month
-                #    self.generate_report(self.output, [item["projectId"]])
-                #else:
-                #    projects_ids_with_target_po.append(item["projectId"])
+                # if self.command == "report-month":
+                #     # Run generate report here when using report-month
+                #     self.generate_report(self.output, [item["projectId"]])
+                # else:
+                #     projects_ids_with_target_po.append(item["projectId"])
 
         if not project_found:
             raise Exception(f"No project named {target_project} was found on Xero!")
